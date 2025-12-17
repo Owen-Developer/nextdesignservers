@@ -1497,7 +1497,7 @@ function jobGetTime(){
     return `${monthTxt} ${monthNum}, ${yearNum} at ${timeString}`;
 }
 function jobCreateNoti(userId, title, type, reciever){
-    db.query("insert into notifications (user_id, title, full_date, type, status, reciever) values (?, ?, ?, ?, ?, ?)", [userId, title, jobGetTime(), type, "unread", reciever], (err, result) => {
+    req.db.query("insert into notifications (user_id, title, full_date, type, status, reciever) values (?, ?, ?, ?, ?, ?)", [userId, title, jobGetTime(), type, "unread", reciever], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -1515,7 +1515,7 @@ app.post("/job/api/setup", (req, res) => {
         }
 
         const query = 'INSERT INTO users (role, name, email, phone, password_hash, perms) VALUES (?, ?, ?, ?, ?, ?)';
-        db.query(query, ["n/a", name, email, "n/a", hashedPassword, "admin"], (err, result) => {
+        req.db.query(query, ["n/a", name, email, "n/a", hashedPassword, "admin"], (err, result) => {
             if(err){
                 console.error('Error inserting data:', err);
                 return res.json({ message: 'failure' });
@@ -1530,7 +1530,7 @@ app.post("/job/api/setup", (req, res) => {
 app.post("/job/api/login", (req, res) => {
     const { email, password } = req.body;
 
-    db.query("select * from users where email = ?", [email], (err, result) => {
+    req.db.query("select * from users where email = ?", [email], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -1559,7 +1559,7 @@ app.post("/job/api/login", (req, res) => {
 });
 
 app.get("/job/api/get-jobs", (req, res) => {
-    db.query("select * from jobs where user_id = ?", [req.session.userId], (err, result) => {
+    req.db.query("select * from jobs where user_id = ?", [req.session.userId], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -1574,7 +1574,7 @@ app.get("/job/api/get-jobs", (req, res) => {
 
 app.get("/job/api/get-user", (req, res) => {
     if(!req.session.userId){
-        db.query("select * from users", (err, result) => {
+        req.db.query("select * from users", (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -1586,14 +1586,14 @@ app.get("/job/api/get-user", (req, res) => {
             }
         });
     } else {
-        db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
+        req.db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
             if(err){
                 console.error(err);
             }
     
             let userData = result[0];
             userData.password_hash = "";
-            db.query("select * from notifications where user_id = ? or reciever = ? order by id desc", [req.session.userId, "admin"], (err, result) => {
+            req.db.query("select * from notifications where user_id = ? or reciever = ? order by id desc", [req.session.userId, "admin"], (err, result) => {
                 if(err){
                     console.error(err);
                 }
@@ -1617,7 +1617,7 @@ app.get("/job/api/get-user", (req, res) => {
 
 app.post("/job/api/mark-read", (req, res) => {
     if(req.body.perms == "admin"){
-        db.query("update notifications set status = ? where reciever = ? or user_id = ?", ["read", "admin", req.session.userId], (err, result) => {
+        req.db.query("update notifications set status = ? where reciever = ? or user_id = ?", ["read", "admin", req.session.userId], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -1625,7 +1625,7 @@ app.post("/job/api/mark-read", (req, res) => {
             return res.json({ message: 'success' });
         });
     } else {
-        db.query("update notifications set status = ? where user_id = ?", ["read", req.session.userId], (err, result) => {
+        req.db.query("update notifications set status = ? where user_id = ?", ["read", req.session.userId], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -1638,7 +1638,7 @@ app.post("/job/api/mark-read", (req, res) => {
 app.post("/job/api/update-progress", (req, res) => {
     const { time, jobId } = req.body;
 
-    db.query("update jobs set job_progress = ? where id = ?", [time, jobId], (err, result) => {
+    req.db.query("update jobs set job_progress = ? where id = ?", [time, jobId], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -1650,7 +1650,7 @@ app.post("/job/api/update-progress", (req, res) => {
 app.post("/job/api/end-job", (req, res) => {
     const { time, jobId } = req.body;
 
-    db.query("update jobs set job_status = ?, job_progress = ? where id = ?", ["Completed", time, jobId], (err, result) => {
+    req.db.query("update jobs set job_status = ?, job_progress = ? where id = ?", ["Completed", time, jobId], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -1660,7 +1660,7 @@ app.post("/job/api/end-job", (req, res) => {
 });
 
 app.get("/job/api/get-materials", (req, res) => {
-    db.query("select * from prices", (err, result) => {
+    req.db.query("select * from prices", (err, result) => {
         if(err){
             console.error(err);
         }
@@ -1695,7 +1695,7 @@ app.post("/job/api/send-summary", (req, res) => {
     if(matStr == "") matStr = "No materials used";
     if(notes == "") notes = "No notes yet.";
 
-    db.query("select * from prices", (err, result) => {
+    req.db.query("select * from prices", (err, result) => {
         if(err){
             console.error(err);
         }
@@ -1727,7 +1727,7 @@ app.post("/job/api/send-summary", (req, res) => {
             }
         });
 
-        db.query("select * from jobs where id = ?", [jobId], (err, result) => {
+        req.db.query("select * from jobs where id = ?", [jobId], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -1751,7 +1751,7 @@ app.post("/job/api/send-summary", (req, res) => {
             let realCharge = "£" + Number(chargeCharge + materialCharge + totalLabourCharge);
             let setback = "£" + Number(materialCost + totalLabourCost);
 
-            db.query("update jobs set job_date = ?, job_notes = ?, job_materials = ?, job_charges = ?, job_realcharge = ?, job_setback = ?, material_cost = ?, material_charge = ?, labour_cost = ?, labour_charge = ? where id = ?", [date, notes, matStr, chargeStr, realCharge, setback, "£" + materialCost, "£" + materialCharge, "£" + totalLabourCost, "£" + totalLabourCharge, jobId], async (err, result) => {
+            req.db.query("update jobs set job_date = ?, job_notes = ?, job_materials = ?, job_charges = ?, job_realcharge = ?, job_setback = ?, material_cost = ?, material_charge = ?, labour_cost = ?, labour_charge = ? where id = ?", [date, notes, matStr, chargeStr, realCharge, setback, "£" + materialCost, "£" + materialCharge, "£" + totalLabourCost, "£" + totalLabourCharge, jobId], async (err, result) => {
                 if(err){
                     console.error(err);
                 }
@@ -1764,7 +1764,7 @@ app.post("/job/api/send-summary", (req, res) => {
 });
 
 app.get("/job/api/get-profile", (req, res) => {
-    db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
+    req.db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -1782,12 +1782,12 @@ app.get("/job/api/get-profile", (req, res) => {
 app.post("/job/api/save-profile", (req, res) => {
     const { name, email, phone } = req.body;
 
-    db.query("update users set name = ?, email = ?, phone = ? where id = ?", [name, email, phone, req.session.userId], (err, result) => {
+    req.db.query("update users set name = ?, email = ?, phone = ? where id = ?", [name, email, phone, req.session.userId], (err, result) => {
         if(err){
             console.error(err);
         }
 
-        db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
+        req.db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -1798,7 +1798,7 @@ app.post("/job/api/save-profile", (req, res) => {
 
             let userData = result[0];
             userData.password_hash = "";
-            db.query("select * from notifications where user_id = ?", [req.session.userId], (err, result) => {
+            req.db.query("select * from notifications where user_id = ?", [req.session.userId], (err, result) => {
                 if(err){
                     console.error(err);
                 }
@@ -1818,7 +1818,7 @@ app.post("/job/api/save-profile", (req, res) => {
 app.post("/job/api/change-password", (req, res) => {
     const { currentPassword, newPassword } = req.body;
 
-    db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
+    req.db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -1837,7 +1837,7 @@ app.post("/job/api/change-password", (req, res) => {
                     console.error(err);
                 }
 
-                db.query("update users set password_hash = ? where id = ?", [hashedPassword, req.session.userId], async (err, result) => {
+                req.db.query("update users set password_hash = ? where id = ?", [hashedPassword, req.session.userId], async (err, result) => {
                     if(err){
                         console.error(err);
                     }
@@ -1851,11 +1851,11 @@ app.post("/job/api/change-password", (req, res) => {
 });
 
 app.get("/job/api/admin-data", (req, res) => {
-    db.query("select * from jobs", (err, result) => {
+    req.db.query("select * from jobs", (err, result) => {
         let jobs = result;
-        db.query("select * from users where perms = ? order by name asc", ["worker"], (err, result) => {
+        req.db.query("select * from users where perms = ? order by name asc", ["worker"], (err, result) => {
             let users = result;
-            db.query("select * from prices", (err, result) => {
+            req.db.query("select * from prices", (err, result) => {
                 let prices = result;
 
                 return res.json({ message: 'success', jobs: jobs, users: users, prices: prices });
@@ -1871,7 +1871,7 @@ app.post("/job/api/create-job", (req, res) => {
         return res.json({ message: 'noworker' });
     }
 
-    db.query("insert into jobs (job_name, job_customer, job_date, job_time, job_address, job_worker, user_id, job_status, job_progress, job_materials, job_notes, job_cost) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [jobName, customerName, jobDate, jobTime, customerAddress, worker, workerId, "Pending", "0 minutes", "No materials used", "No notes yet.", jobCost], async (err, result) => {
+    req.db.query("insert into jobs (job_name, job_customer, job_date, job_time, job_address, job_worker, user_id, job_status, job_progress, job_materials, job_notes, job_cost) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [jobName, customerName, jobDate, jobTime, customerAddress, worker, workerId, "Pending", "0 minutes", "No materials used", "No notes yet.", jobCost], async (err, result) => {
         if(err){
             console.error(err);
         }
@@ -1888,7 +1888,7 @@ app.post("/job/api/edit-job", (req, res) => {
         return res.json({ message: 'noworker' });
     }
 
-    db.query("update jobs set job_name = ?, job_customer = ?, job_date = ?, job_time = ?, job_address = ?, job_worker = ?, user_id = ?, job_status = ?, job_progress = ?, job_materials = ?, job_notes = ?, job_cost = ? where id = ?", [editName, editCustomerName, editDate, editTime, editCustomerAddress, editWorker, editWorkerId, "Pending", "0 minutes", "No materials used", "No notes yet.", editCost, jobId], async (err, result) => {
+    req.db.query("update jobs set job_name = ?, job_customer = ?, job_date = ?, job_time = ?, job_address = ?, job_worker = ?, user_id = ?, job_status = ?, job_progress = ?, job_materials = ?, job_notes = ?, job_cost = ? where id = ?", [editName, editCustomerName, editDate, editTime, editCustomerAddress, editWorker, editWorkerId, "Pending", "0 minutes", "No materials used", "No notes yet.", editCost, jobId], async (err, result) => {
         if(err){
             console.error(err);
         }
@@ -1899,9 +1899,9 @@ app.post("/job/api/edit-job", (req, res) => {
 });
 
 app.post("/job/api/delete-job", (req, res) => {
-    db.query("select * from jobs where id = ?", [req.body.jobId], (err, result) => {
+    req.db.query("select * from jobs where id = ?", [req.body.jobId], (err, result) => {
         let workerId = result[0].user_id;
-        db.query("delete from jobs where id = ?", [req.body.jobId], async (err, result) => {
+        req.db.query("delete from jobs where id = ?", [req.body.jobId], async (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -1916,7 +1916,7 @@ app.post("/job/api/create-worker", (req, res) => {
     const { name, role, email, phone, password } = req.body;
 
     const checkTakenQuery = 'SELECT * FROM users WHERE email = ?';
-    db.query(checkTakenQuery, [email], (err, result) => {
+    req.db.query(checkTakenQuery, [email], (err, result) => {
         if(err){
             console.error("Error checking if email is taken");
         }
@@ -1938,7 +1938,7 @@ app.post("/job/api/create-worker", (req, res) => {
 
             const code = Math.floor(100000 + Math.random() * 900000);
             const query = 'INSERT INTO users (role, name, email, phone, password_hash, perms) VALUES (?, ?, ?, ?, ?, ?)';
-            db.query(query, [role, name, email, phone, hashedPassword, "worker"], (err, result) => {
+            req.db.query(query, [role, name, email, phone, hashedPassword, "worker"], (err, result) => {
                 if(err){
                     console.error('Error inserting data:', err);
                     return res.json({ message: 'failure' });
@@ -1954,7 +1954,7 @@ app.post("/job/api/update-materials", (req, res) => {
     const data = req.body;
 
     data.forEach((material, idx) => {
-        db.query("update prices set cost = ?, charge = ? where id = ?", [material[1], material[2], material[0]], (err, result) => {
+        req.db.query("update prices set cost = ?, charge = ? where id = ?", [material[1], material[2], material[0]], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -1970,7 +1970,7 @@ app.post("/job/api/update-charges", (req, res) => {
     const data = req.body;
 
     data.forEach((material, idx) => {
-        db.query("update prices set charge = ? where id = ?", [material[1], material[0]], (err, result) => {
+        req.db.query("update prices set charge = ? where id = ?", [material[1], material[0]], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -1985,7 +1985,7 @@ app.post("/job/api/update-charges", (req, res) => {
 app.post("/job/api/create-charge", (req, res) => {
     const { name, charge } = req.body;
 
-    db.query("insert into prices (type, name, unit, default_value, cost, charge, area) values (?, ?, ?, ?, ?, ?, ?)", ["n/a", name, "n/a", 0, 0, charge, "charges"], (err, result) => {
+    req.db.query("insert into prices (type, name, unit, default_value, cost, charge, area) values (?, ?, ?, ?, ?, ?, ?)", ["n/a", name, "n/a", 0, 0, charge, "charges"], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -1998,7 +1998,7 @@ app.post("/job/api/update-labour", (req, res) => {
     const data = req.body;
 
     data.forEach((labour, idx) => {
-        db.query("update prices set " + labour[2] + " = ? where id = ?", [labour[1], labour[0]], (err, result) => {
+        req.db.query("update prices set " + labour[2] + " = ? where id = ?", [labour[1], labour[0]], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -2021,7 +2021,7 @@ app.get("/job/api/logout", (req, res) => {
 });
 
 app.get("/job/api/admin-notis", (req, res) => {
-    db.query("select * from notifications where reciever = ? order by id desc", ["admin"], (err, result) => {
+    req.db.query("select * from notifications where reciever = ? order by id desc", ["admin"], (err, result) => {
         if(err){
             console.error(err);
         } 
@@ -2031,7 +2031,7 @@ app.get("/job/api/admin-notis", (req, res) => {
 });
 
 app.get("/job/api/find-admin", (req, res) => {
-    db.query("select * from users where perms = ?", ["admin"], (err, result) => {
+    req.db.query("select * from users where perms = ?", ["admin"], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -2045,7 +2045,7 @@ app.get("/job/api/find-admin", (req, res) => {
 });
 
 app.post("/job/api/delete-worker", (req, res) => {
-    db.query("delete from users where id = ?", [req.body.id], (err, result) => {
+    req.db.query("delete from users where id = ?", [req.body.id], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -2071,7 +2071,7 @@ app.post("/job/api/create-material", (req, res) => {
         defaultValue = 250;
     }
     
-    db.query("insert into prices (type, name, unit, default_value, cost, charge, area) values (?, ?, ?, ?, ?, ?, ?)", [type, name, unit, defaultValue, Number(cost.replace("£", "")), Number(charge.replace("£", "")), "materials"], (err, result) => {
+    req.db.query("insert into prices (type, name, unit, default_value, cost, charge, area) values (?, ?, ?, ?, ?, ?, ?)", [type, name, unit, defaultValue, Number(cost.replace("£", "")), Number(charge.replace("£", "")), "materials"], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -2081,7 +2081,7 @@ app.post("/job/api/create-material", (req, res) => {
 });
 
 app.post("/job/api/delete-price", (req, res) => {
-    db.query("delete from prices where id = ?", [req.body.id], (err, result) => {
+    req.db.query("delete from prices where id = ?", [req.body.id], (err, result) => {
         if(err){
             console.error(err);
         }

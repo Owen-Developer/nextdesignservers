@@ -15,7 +15,7 @@ const stripe = require("stripe")(process.env.pooja_STRIPE_SECRET_KEY);
 
 const accessKey = process.env.pooja_ACCESS_KEY;
 
-const db = mysql.createPool({
+const poojaDb = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
@@ -25,9 +25,25 @@ const db = mysql.createPool({
     connectionLimit: 10,
     queueLimit: 0
 });
-db.query('SELECT 1', (err, results) => {
-    if (err) console.error('Error running query:', err);
-    else console.log('Database is working');
+const cadgolfDb = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.cadgolf_DB_NAME,
+    port: process.env.PORT,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
+const nextdesignDb = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.next_DB_NAME,
+    port: process.env.PORT,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
 const store = new MySQLStore({
@@ -56,6 +72,21 @@ app.use(cors({
     },
     credentials: true
 }));
+
+function decideDb(req, res, next){
+    const origin = req.headers.origin;
+
+    if(origin == "https://poojasbeautysalon.com"){
+        req.db = poojaDb;
+    } else if(origin == "https://cadgolfperformance.com"){
+        req.db = cadgolfDb;
+    } else if(origin == "https://nextdesignwebsite.com"){
+        req.db = nextdesignDb;
+    }
+
+    next();
+}
+app.use(decideDb);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -222,7 +253,7 @@ app.post("/pooja/api/book-appointment", async (req, res) => {
         poojaSendUserFree(email, date, time + " - " + emailFinish, cancelLink);
 
         const insertQuery = "insert into bookings (booking_date, booking_time, email, message, coupon_code, services, booking_type, price, cancel_code, payment_status, time_taken, finish_time) values ?";
-        db.query(insertQuery, [values], (err, result) => {
+        req.db.query(insertQuery, [values], (err, result) => {
             if(err){
                 console.error("Error updating booking: ", err);
                 return res.json({ message: 'failed' });
@@ -231,7 +262,7 @@ app.post("/pooja/api/book-appointment", async (req, res) => {
             return res.json({ message: 'success' });
         });
     } else if(applied){
-        db.query("select * from codes where coupon_code = ?", [code], (err, result) => {
+        req.db.query("select * from codes where coupon_code = ?", [code], (err, result) => {
             if(err){
                 console.error("Error selecting codes: " + err);
             }
@@ -273,14 +304,14 @@ app.post("/pooja/api/book-appointment", async (req, res) => {
 
             let newValue = result[0].value - Number(price.slice(1));
             const insertQuery = "insert into bookings (booking_date, booking_time, email, message, coupon_code, services, booking_type, price, cancel_code, payment_status, time_taken, finish_time) values ?";
-            db.query(insertQuery, [values], (err, result) => {
+            req.db.query(insertQuery, [values], (err, result) => {
                 if(err){
                     console.error("Error updating booking: ", err);
                     return res.json({ message: 'failed' });
                 }
 
                 const updateValueQuery = "update codes set value = ? where coupon_code = ?";
-                db.query(updateValueQuery, [newValue, code], (err, result) => {
+                req.db.query(updateValueQuery, [newValue, code], (err, result) => {
                     if(err){
                         console.error("Error updating gift value: " + err);
                     }
@@ -518,7 +549,7 @@ app.post("/pooja/api/check-code", (req, res) => {
     const code = req.body.code;
 
     const checkQuery = "select * from codes where coupon_code = ?";
-    db.query(checkQuery, [code], (err, result) => {
+    req.db.query(checkQuery, [code], (err, result) => {
         if(err){
             console.error("Error checking code: " + err);
         }
@@ -535,7 +566,7 @@ app.post("/pooja/api/check-slots", (req, res) => {
     const date = req.body.date;
 
     const checkQuery = "select * from bookings where booking_date = ?";
-    db.query(checkQuery, [date], (err, result) => {
+    req.db.query(checkQuery, [date], (err, result) => {
         if(err){
             console.error("Error checking bookings: " + err);
         }
@@ -596,7 +627,7 @@ app.post("/pooja/api/get-bookings", (req, res) => {
     }
 
     const getBookingsQuery = "select * from bookings where booking_date like ? or booking_date like ?";
-    db.query(getBookingsQuery, [likeStr, likeStr2], (err, result) => {
+    req.db.query(getBookingsQuery, [likeStr, likeStr2], (err, result) => {
         if(err){
             console.error("Error getting bookings: " + err);
             return res.json({ bookings: [] });
@@ -610,7 +641,7 @@ app.post("/pooja/api/verify-cancel", (req, res) => {
     const code = req.body.code;
 
     const checkQuery = "select * from bookings where cancel_code = ?";
-    db.query(checkQuery, [code], (err, result) => {
+    req.db.query(checkQuery, [code], (err, result) => {
         if(err){
             console.error("Error getting cancel code: " + err);
         }
@@ -632,13 +663,13 @@ app.post("/pooja/api/delete-booking", (req, res, next) => {
     const code = req.body.code;
     const reason = req.body.reason;
 
-    db.query("select * from bookings where cancel_code = ? and booking_type = ?", [code, "user"], (err, result) => {
+    req.db.query("select * from bookings where cancel_code = ? and booking_type = ?", [code, "user"], (err, result) => {
         if(err){
             console.error("Error selecting bookings: " + err);
         }
         
         const deleteQuery = "delete from bookings where cancel_code = ?";
-        db.query(deleteQuery, [code], async (err, delResult) => {
+        req.db.query(deleteQuery, [code], async (err, delResult) => {
             if(err){
                 console.error("Error deleting bookings: " + err);
             }
@@ -647,7 +678,7 @@ app.post("/pooja/api/delete-booking", (req, res, next) => {
             poojaSendClientDelete(result[0].booking_date, reason);
             poojaSendUserDelete(result[0].email, result[0].booking_date, reason);
             if(result[0].coupon_code && result[0].coupon != "Not entered"){
-                db.query("select * from codes where coupon_code = ?", [result[0].coupon_code], async (err, result) => {
+                req.db.query("select * from codes where coupon_code = ?", [result[0].coupon_code], async (err, result) => {
                     if(err){
                         console.error("Error getting id from codes: " + err);
                     }
@@ -687,7 +718,7 @@ app.post("/pooja/api/close-all", poojaRequireAdmin, (req, res) => {
     const date = req.body.date;
 
     const getEmailsQuery = "select * from bookings where booking_date = ?";
-    db.query(getEmailsQuery, [date], (err, result) => {
+    req.db.query(getEmailsQuery, [date], (err, result) => {
         if(err){
             console.error("Error fetching bookings: " + err);
         }
@@ -701,7 +732,7 @@ app.post("/pooja/api/close-all", poojaRequireAdmin, (req, res) => {
         }
 
         const deleteAllQuery = "delete from bookings where booking_date = ?";
-        db.query(deleteAllQuery, [date], (err, result) => {
+        req.db.query(deleteAllQuery, [date], (err, result) => {
             if(err){
                 console.error("Error deleting existing bookings: " + err);
             }
@@ -723,7 +754,7 @@ app.post("/pooja/api/close-all", poojaRequireAdmin, (req, res) => {
                 values.push([times[i], date, "marceauowen@gmail.com", "Not entered", "Not entered", "No Services", "admin", "£0", "n/a"]);
             }
             const closeQuery = "insert into bookings (booking_time, booking_date, email, message, coupon_code, services, booking_type, price, cancel_code) values ?";
-            db.query(closeQuery, [values], (err, result) => {
+            req.db.query(closeQuery, [values], (err, result) => {
                 if(err){
                     console.error("Error inserting fake bookings: " + err);
                 }
@@ -738,7 +769,7 @@ app.post("/pooja/api/show-bookings", poojaRequireAdmin, (req, res) => {
     const date = req.body.date;
 
     const getBookingsQuery = "select * from bookings where booking_date = ? and booking_type = ?";
-    db.query(getBookingsQuery, [date, "user"], (err, result) => {
+    req.db.query(getBookingsQuery, [date, "user"], (err, result) => {
         if(err){
             console.error("Error getting bookings: " + err);
         }
@@ -751,7 +782,7 @@ app.post("/pooja/api/open-day", poojaRequireAdmin, (req, res) => {
     const date = req.body.date;
 
     const openQuery = "delete from bookings where booking_date = ?";
-    db.query(openQuery, [date], (err, result) => {
+    req.db.query(openQuery, [date], (err, result) => {
         if(err){
             console.error("Error opening day: " + err);
         }
@@ -764,7 +795,7 @@ app.post("/pooja/api/admin-slots", poojaRequireAdmin, (req, res) => {
     const date = req.body.date;
 
     const selectAdminSlots = "select * from bookings where booking_date = ? and booking_type = ?";
-    db.query(selectAdminSlots, [date, "admin"], (err, result) => {
+    req.db.query(selectAdminSlots, [date, "admin"], (err, result) => {
         if(err){
             console.error("Error selecting admin slots: " + err);
         }
@@ -777,7 +808,7 @@ app.post("/pooja/api/open-slot", poojaRequireAdmin, (req, res) => {
     const id = req.body.id;
 
     const openSlotQuery = "delete from bookings where id = ?";
-    db.query(openSlotQuery, [id], (err, result) => {
+    req.db.query(openSlotQuery, [id], (err, result) => {
         if(err){
             console.error("Error opening slot: " + err);
         }
@@ -792,7 +823,7 @@ app.post("/pooja/api/remove-slot", poojaRequireAdmin, (req, res) => {
 
     const values = [time, date, "marceauowen@gmail.com", "Not entered", "Not entered", "No Services", "admin", "£0", "n/a"];
     const closeQuery = "insert into bookings (booking_time, booking_date, email, message, coupon_code, services, booking_type, price, cancel_code) values (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    db.query(closeQuery, values, (err, result) => {
+    req.db.query(closeQuery, values, (err, result) => {
         if(err){
             console.error("Error removing slot: " + err);
         }
@@ -803,7 +834,7 @@ app.post("/pooja/api/remove-slot", poojaRequireAdmin, (req, res) => {
 
 app.get("/pooja/api/verify-booking", poojaRequireAdmin, (req, res) => {
     const changeStatusQuery = "update bookings set payment_status = ? where reference_code = ?";
-    db.query(changeStatusQuery, ["verified", req.query.verify], (err, result) => {
+    req.db.query(changeStatusQuery, ["verified", req.query.verify], (err, result) => {
         if(err){
             console.error("Error changing payment status: " + err);
         }
@@ -814,7 +845,7 @@ app.get("/pooja/api/verify-booking", poojaRequireAdmin, (req, res) => {
 
 app.get("/pooja/api/verify-gift", poojaRequireAdmin, (req, res) => {
     const getVoucherQuery = "select * from codes where reference_code = ?";
-    db.query(getVoucherQuery, [req.query.verifyvoucher], (err, result) => {
+    req.db.query(getVoucherQuery, [req.query.verifyvoucher], (err, result) => {
         if(err){
             console.error("Error getting vouchers: " + err);
             return res.json({ message: 'failure' });
@@ -909,7 +940,7 @@ app.post("/pooja/api/create-gift", async (req, res) => {
     
     const newGift = "GIFT" + poojaGenerateNumber();
 
-    db.query("select * from codes where session_id = ?", [id], (err, result) => {
+    req.db.query("select * from codes where session_id = ?", [id], (err, result) => {
         if(err){
             console.error("Error checking if session was used: " + err);
         }
@@ -919,7 +950,7 @@ app.post("/pooja/api/create-gift", async (req, res) => {
         }
 
         const createGiftQuery = "insert into codes (coupon_code, code_status, value, email, session_id) values (?, ?, ?, ?, ?)";
-        db.query(createGiftQuery, [newGift, "active", amount, email, id], (err, result) => {
+        req.db.query(createGiftQuery, [newGift, "active", amount, email, id], (err, result) => {
             if(err){
                 console.error("Error creating new code: " + err);
                 return res.json({ message: 'failed' });
@@ -981,7 +1012,7 @@ app.post("/pooja/api/verify-booking", async (req, res) => {
     }
     
     const insertQuery = "insert into bookings (booking_date, booking_time, email, message, coupon_code, services, booking_type, price, cancel_code, payment_status, time_taken, finish_time, session_id) values ?";
-    db.query(insertQuery, [values], (err, result) => {
+    req.db.query(insertQuery, [values], (err, result) => {
         if(err){
             console.error("Error updating booking: ", err);
             return res.json({ message: 'failed' });
@@ -1036,7 +1067,7 @@ app.post("/cadgolf/api/submit", (req, res) => {
     const team = req.body.player1 + ",," + req.body.player2 + ",," + req.body.player3;
     const event = JSON.parse(req.body.event);
     const getEventQuery = "select * from all_events where id = ?";
-    db.query(getEventQuery, [event.id], (err, result) => {
+    req.db.query(getEventQuery, [event.id], (err, result) => {
         if(err){
             console.error("Error getting event: " + err);
         }
@@ -1046,14 +1077,14 @@ app.post("/cadgolf/api/submit", (req, res) => {
                 return res.json({ message: 'Limit Exceeded' });
             }
             const insertQuery = "insert into bookings (event_id, booking_name, email, phone, team) values (?, ?, ?, ?, ?);";
-            db.query(insertQuery, [event.id, name, email, phone, team], (err, result) => {
+            req.db.query(insertQuery, [event.id, name, email, phone, team], (err, result) => {
                 if(err){
                     console.error("Error inserting booking: " + err);
                     return res.json({ message: 'Failure in DB' });
                 }
 
                 const updateSlotsQuery = "update all_events set current_slots = ? where id = ?";
-                db.query(updateSlotsQuery, [event.current_slots + Number(event.team_size), event.id], (err, result) => {
+                req.db.query(updateSlotsQuery, [event.current_slots + Number(event.team_size), event.id], (err, result) => {
                     if(err){
                         console.error("Error updating slots: " + err);
                         return res.json({ message: 'Failure in DB (slots)' });
@@ -1079,7 +1110,7 @@ app.post("/cadgolf/get-events", (req, res) => {
     }
 
     const getBookingsQuery = "select * from all_events where event_date like ?";
-    db.query(getBookingsQuery, [likeStr], (err, result) => {
+    req.db.query(getBookingsQuery, [likeStr], (err, result) => {
         if(err){
             console.error("Error getting bookings: " + err);
             return res.json({ bookings: [] });
@@ -1159,7 +1190,7 @@ app.post("/nextdesign/api/book-appointment", (req, res) => {
     const cancelLink = url + "/?cancel=" + cancelCode;
 
     const insertQuery = "insert into bookings (booking_date, booking_time, email, phone_number, message, booking_type, cancel_code) values (?, ?, ?, ?, ?, ?, ?)";
-    db.query(insertQuery, [date, time.replace(/ /g, ""), email, phone, message, type, cancelCode], (err, result) => {
+    req.db.query(insertQuery, [date, time.replace(/ /g, ""), email, phone, message, type, cancelCode], (err, result) => {
         if(err){
             console.error("Error updating booking: ", err);
             return res.json({ message: 'Failure' });
@@ -1181,7 +1212,7 @@ app.post("/nextdesign/api/get-bookings", (req, res) => {
 
 
     const getBookingsQuery = "select * from bookings where booking_date like ?";
-    db.query(getBookingsQuery, [likeStr], (err, result) => {
+    req.db.query(getBookingsQuery, [likeStr], (err, result) => {
         if(err){
             console.error("Error getting bookings: " + err);
             return res.json({ bookings: [] });
@@ -1195,7 +1226,7 @@ app.post("/nextdesign/api/extra-slots", (req, res) => {
     const date = req.body.date;
 
     const getExtraSlots = "select * from extra_slots where booking_date = ?";
-    db.query(getExtraSlots, [date], (err, result) => {
+    req.db.query(getExtraSlots, [date], (err, result) => {
         if(err){
             console.error("Error getting extra slots: " + err);
         }
@@ -1208,7 +1239,7 @@ app.post("/nextdesign/api/check-slots", (req, res) => {
     const date = req.body.date;
 
     const checkQuery = "select * from bookings where booking_date = ?";
-    db.query(checkQuery, [date], (err, result) => {
+    req.db.query(checkQuery, [date], (err, result) => {
         if(err){
             console.error("Error checking bookings: " + err);
         }
@@ -1238,7 +1269,7 @@ app.post("/nextdesign/api/close-all", nextRequireAdmin, (req, res) => {
     const times = req.body.times;
 
     const getEmailsQuery = "select * from bookings where booking_date = ?";
-    db.query(getEmailsQuery, [date], (err, result) => {
+    req.db.query(getEmailsQuery, [date], (err, result) => {
         if(err){
             console.error("Error fetching bookings: " + err);
         }
@@ -1254,7 +1285,7 @@ app.post("/nextdesign/api/close-all", nextRequireAdmin, (req, res) => {
         }
 
         const deleteAllQuery = "delete from bookings where booking_date = ?";
-        db.query(deleteAllQuery, [date], (err, result) => {
+        req.db.query(deleteAllQuery, [date], (err, result) => {
             if(err){
                 console.error("Error deleting existing bookings: " + err);
             }
@@ -1283,7 +1314,7 @@ app.post("/nextdesign/api/close-all", nextRequireAdmin, (req, res) => {
                 values.push([times[i].replace(/ /g, ""), date, "marceauowen@gmail.com", "Not entered", "admin", "n/a"]);
             }
             const closeQuery = "insert into bookings (booking_time, booking_date, email, message, booking_type, cancel_code) values ?";
-            db.query(closeQuery, [values], (err, result) => {
+            req.db.query(closeQuery, [values], (err, result) => {
                 if(err){
                     console.error("Error inserting fake bookings: " + err);
                 }
@@ -1298,7 +1329,7 @@ app.post("/nextdesign/api/open-day", nextRequireAdmin, (req, res) => {
     const date = req.body.date;
 
     const openQuery = "delete from bookings where booking_date = ?";
-    db.query(openQuery, [date], (err, result) => {
+    req.db.query(openQuery, [date], (err, result) => {
         if(err){
             console.error("Error opening day: " + err);
         }
@@ -1311,7 +1342,7 @@ app.post("/nextdesign/api/show-bookings", nextRequireAdmin, (req, res) => {
     const date = req.body.date;
 
     const getBookingsQuery = "select * from bookings where booking_date = ? and booking_type = ?";
-    db.query(getBookingsQuery, [date, "user"], (err, result) => {
+    req.db.query(getBookingsQuery, [date, "user"], (err, result) => {
         if(err){
             console.error("Error getting bookings: " + err);
         }
@@ -1324,7 +1355,7 @@ app.post("/nextdesign/api/verify-cancel", (req, res) => {
     const code = req.body.code;
 
     const checkQuery = "select * from bookings where cancel_code = ?";
-    db.query(checkQuery, [code], (err, result) => {
+    req.db.query(checkQuery, [code], (err, result) => {
         if(err){
             console.error("Error getting cancel code: " + err);
         }
@@ -1341,12 +1372,12 @@ app.post("/nextdesign/api/delete-booking", (req, res) => {
     const code = req.body.code;
 
     const deleteQuery = "delete from bookings where cancel_code = ?";
-    db.query(deleteQuery, [code], (err, result) => {
+    req.db.query(deleteQuery, [code], (err, result) => {
         if(err){
             console.error("Error deleting bookings: " + err);
         }
 
-        db.query("select * from bookings where cancel_code = ?", [code], (err, result) => {
+        req.db.query("select * from bookings where cancel_code = ?", [code], (err, result) => {
             if(err){
                 console.error("Error selecting *: " + err);
             }
@@ -1366,7 +1397,7 @@ app.post("/nextdesign/api/remove-slot", nextRequireAdmin, (req, res) => {
 
     const values = [time, date, "marceauowen@gmail.com", "Not entered", "admin", "n/a"];
     const closeQuery = "insert into bookings (booking_time, booking_date, email, message, booking_type, cancel_code) values (?, ?, ?, ?, ?, ?)";
-    db.query(closeQuery, values, (err, result) => {
+    req.db.query(closeQuery, values, (err, result) => {
         if(err){
             console.error("Error removing slot: " + err);
             return res.json({ message: 'failure' });
@@ -1380,7 +1411,7 @@ app.post("/nextdesign/api/open-slot", nextRequireAdmin, (req, res) => {
     const id = req.body.id;
 
     const openSlotQuery = "delete from bookings where id = ?";
-    db.query(openSlotQuery, [id], (err, result) => {
+    req.db.query(openSlotQuery, [id], (err, result) => {
         if(err){
             console.error("Error opening slot: " + err);
         }
@@ -1394,7 +1425,7 @@ app.post("/nextdesign/api/create-slot", nextRequireAdmin, (req, res) => {
     const time = req.body.time;
 
     const insertQuery = "insert into extra_slots (booking_date, booking_time) values (?, ?)";
-    db.query(insertQuery, [date, time], (err, result) => {
+    req.db.query(insertQuery, [date, time], (err, result) => {
         if(err){
             console.error("Error inserting extra slot: " + err);
             return res.json({ message: 'failure' });

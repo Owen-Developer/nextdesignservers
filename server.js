@@ -3,7 +3,7 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const mysql = require('mysql2');
 const app = express();
-const PORT = process.env.pooja_PORT || 3000;
+const PORT = process.env.PORT || 3000;
 const session = require('express-session');
 const MySQLStore = require('express-mysql-session')(session);
 require('dotenv').config();
@@ -19,7 +19,7 @@ const db = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
+    database: process.env.POOJA_DB_NAME,
     port: process.env.PORT,
     waitForConnections: true,
     connectionLimit: 10,
@@ -34,7 +34,7 @@ const store = new MySQLStore({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
+    database: process.env.POOJA_DB_NAME,
     port: process.env.PORT // 24642 or 3306
 });
 

@@ -92,6 +92,8 @@ function decideDb(req, res, next){
         req.db = cadgolfDb;
     } else if(origin == "https://nextdesignwebsite.com"){
         req.db = nextdesignDb;
+    } else if(origin == "https://owen-developer.github.io"){
+        req.db = jobDb;
     }
 
     next();

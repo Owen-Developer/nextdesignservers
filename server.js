@@ -998,6 +998,417 @@ app.post("/pooja/api/verify-booking", async (req, res) => {
 
 
 
+/*//////////////////////////////////// CAD GOLF /////////////////////////////////*/
+async function cadgolfSendEmail(userEmail, text) {
+    const dataToSend = { reciever: userEmail, text: text, service: 'nextdesign' };
+    try {
+        const response = await fetch('https://email-sender-lkex.vercel.app/api/send-email', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json', 
+            },
+            body: JSON.stringify(dataToSend), 
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Error:', errorData.error);
+            return;
+        }
+    } catch (error) {
+        console.error('Error posting data:', error);
+    }
+}
+function cadgolfSendClientNotification(event, name, players, email){
+    cadgolfSendEmail(process.env.cadgolf_ADMIN_EMAIL, `<p>Hi, a new booking was made from your website by ${name}.<br><br>Event: ${event}<br><br>Players: ${players.replace(/,,/g, ", ")}<br><br> Email: ${email}`);
+    cadgolfSendEmail("jackbaileywoods@gmail.com", `<p>Hi, a new booking was made from your website by ${name}.<br><br>Event: ${event}<br><br>Players: ${players.replace(/,,/g, ", ")}<br><br> Email: ${email}`);
+}
+function isValidEmail(email){
+	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+	return emailRegex.test(email);
+}
+
+
+app.post("/cadgolf/api/submit", (req, res) => {
+    const name = req.body.name;
+    const email = req.body.email;
+    const phone = req.body.phone;
+    const team = req.body.player1 + ",," + req.body.player2 + ",," + req.body.player3;
+    const event = JSON.parse(req.body.event);
+    const getEventQuery = "select * from all_events where id = ?";
+    db.query(getEventQuery, [event.id], (err, result) => {
+        if(err){
+            console.error("Error getting event: " + err);
+        }
+
+        if(result.length > 0){
+            if(event.current_slots + Number(event.team_size) > event.max_slots){
+                return res.json({ message: 'Limit Exceeded' });
+            }
+            const insertQuery = "insert into bookings (event_id, booking_name, email, phone, team) values (?, ?, ?, ?, ?);";
+            db.query(insertQuery, [event.id, name, email, phone, team], (err, result) => {
+                if(err){
+                    console.error("Error inserting booking: " + err);
+                    return res.json({ message: 'Failure in DB' });
+                }
+
+                const updateSlotsQuery = "update all_events set current_slots = ? where id = ?";
+                db.query(updateSlotsQuery, [event.current_slots + Number(event.team_size), event.id], (err, result) => {
+                    if(err){
+                        console.error("Error updating slots: " + err);
+                        return res.json({ message: 'Failure in DB (slots)' });
+                    }
+
+
+                    cadgolfSendClientNotification(event.title, name, team, email);
+                    return res.json({ message: "Success" });
+                });
+            });
+        } else {
+            return res.json({ message: 'Failure' });
+        }
+    });
+});
+
+app.post("/cadgolf/get-events", (req, res) => {
+    let likeStr;
+    if(req.body.month < 10){
+        likeStr = "%" + req.body.year + "-0" + String(req.body.month) + "%";
+    } else {
+        likeStr = "%" + req.body.year + "-" + String(req.body.month) + "%";
+    }
+
+    const getBookingsQuery = "select * from all_events where event_date like ?";
+    db.query(getBookingsQuery, [likeStr], (err, result) => {
+        if(err){
+            console.error("Error getting bookings: " + err);
+            return res.json({ bookings: [] });
+        }
+
+        return res.json({ bookings: result });
+    });
+});
+/*////////////////////////////////////////////////////////////////////////////*/
+
+
+
+
+/*//////////////////////////////////// NEXT DESIGN /////////////////////////////////*/
+async function nextSendEmail(userEmail, text) {
+    const dataToSend = { reciever: userEmail, text: text, service: 'nextdesign' };
+    try {
+        const response = await fetch('https://email-sender-lkex.vercel.app/api/send-email', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json', 
+            },
+            body: JSON.stringify(dataToSend), 
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Error:', errorData.error);
+            return;
+        }
+    } catch (error) {
+        console.error('Error posting data:', error);
+    }
+}
+function nextSendClientEmail(userEmail, date, time, email, message){
+    nextSendEmail(userEmail, `<p>Hello, a call was booked with NextDesign for: ${date}, ${time}\n\nEmail: ${email}\n\nMessage: ${message}</p>`);
+}
+function nextSendClientDelete(userEmail, date, time){
+    nextSendEmail(userEmail, `<p>Hello, a booking was cancelled with NextDesign for: ${date}, ${time}.</p>`);
+}
+function nextSendUserEmail(userEmail, date, time, link) {  
+    nextSendEmail(userEmail, `<p>Hello, you booked a call with NextDesign for ${date}, ${time}\n\nCancel anytime with this link: ${link}</p>`);
+}
+function nextSendUserDelete(userEmail) {
+    nextSendEmail(userEmail, `<p>Hello, your booking for NextDesign has been cancelled. Please rebook at your convenience.</p>`);
+}
+function isValidEmail(email){
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+function nextGenerateNumber(){
+    return crypto.randomBytes(5).toString('hex'); 
+}
+function nextRequireAdmin(req, res, next){
+    const code = req.query.code;
+    if(code != process.env.next_ADMIN_CODE) {
+        console.log("admin fail");
+        return res.json({ message: 'failure' });
+    }
+    next();
+}
+
+
+app.post("/nextdesign/api/book-appointment", (req, res) => {
+    const date = req.body.date;
+    const time = req.body.time;
+    const email = req.body.email;
+    const phone = req.body.phone;
+    const message = req.body.message;
+    const type = req.body.type;
+
+    if(!isValidEmail(email)){
+        return res.json({ message: 'Failure' });
+    }
+
+    const cancelCode = nextGenerateNumber();
+    const cancelLink = url + "/?cancel=" + cancelCode;
+
+    const insertQuery = "insert into bookings (booking_date, booking_time, email, phone_number, message, booking_type, cancel_code) values (?, ?, ?, ?, ?, ?, ?)";
+    db.query(insertQuery, [date, time.replace(/ /g, ""), email, phone, message, type, cancelCode], (err, result) => {
+        if(err){
+            console.error("Error updating booking: ", err);
+            return res.json({ message: 'Failure' });
+        }
+
+        nextSendClientEmail(process.env.next_ADMIN_EMAIL, date, time, email, message);
+        nextSendUserEmail(email, date, time, cancelLink);
+        return res.json({ message: 'success' });
+    });
+});
+
+app.post("/nextdesign/api/get-bookings", (req, res) => {
+    let likeStr;
+    if(req.body.month < 10){
+        likeStr = "%" + req.body.year + "-0" + String(req.body.month) + "%";
+    } else {
+        likeStr = "%" + req.body.year + "-" + String(req.body.month) + "%";
+    }
+
+
+    const getBookingsQuery = "select * from bookings where booking_date like ?";
+    db.query(getBookingsQuery, [likeStr], (err, result) => {
+        if(err){
+            console.error("Error getting bookings: " + err);
+            return res.json({ bookings: [] });
+        }
+
+        return res.json({ bookings: result });
+    });
+});
+
+app.post("/nextdesign/api/extra-slots", (req, res) => {
+    const date = req.body.date;
+
+    const getExtraSlots = "select * from extra_slots where booking_date = ?";
+    db.query(getExtraSlots, [date], (err, result) => {
+        if(err){
+            console.error("Error getting extra slots: " + err);
+        }
+
+        return res.json({ slots: result });
+    });
+});
+
+app.post("/nextdesign/api/check-slots", (req, res) => {
+    const date = req.body.date;
+
+    const checkQuery = "select * from bookings where booking_date = ?";
+    db.query(checkQuery, [date], (err, result) => {
+        if(err){
+            console.error("Error checking bookings: " + err);
+        }
+
+        let timesTaken = "";
+        if(result.length > 0){
+            result.forEach((row, idx) => {
+                if(idx > 0){
+                    timesTaken += ",," + row.booking_time.slice(0, 5);
+                } else {
+                    timesTaken = row.booking_time.slice(0, 5);
+                }
+            }); 
+            return res.json({ message: 'success', times: timesTaken });
+        } else {
+            return res.json({ message: 'success', times: timesTaken});
+        }
+    });
+});
+
+app.get("/nextdesign/api/admin-code", nextRequireAdmin, (req, res) => {
+    return res.json({ message: 'success' });
+});
+
+app.post("/nextdesign/api/close-all", nextRequireAdmin, (req, res) => {
+    const date = req.body.date;
+    const times = req.body.times;
+
+    const getEmailsQuery = "select * from bookings where booking_date = ?";
+    db.query(getEmailsQuery, [date], (err, result) => {
+        if(err){
+            console.error("Error fetching bookings: " + err);
+        }
+
+        if(result.length > 0){
+            let allStr = "";
+            result.forEach(obj => {
+                if(!allStr.includes(obj.email)){
+                    allStr += obj.email;
+                    nextSendUserDelete(obj.email);
+                }
+            });
+        }
+
+        const deleteAllQuery = "delete from bookings where booking_date = ?";
+        db.query(deleteAllQuery, [date], (err, result) => {
+            if(err){
+                console.error("Error deleting existing bookings: " + err);
+            }
+
+            let values = [];
+            let times = [
+                "07:00", "07:30",
+                "08:00", "08:30",
+                "09:00", "09:30",
+                "10:00", "10:30",
+                "11:00", "11:30",
+                "12:00", "12:30",
+                "13:00", "13:30",
+                "14:00", "14:30",
+                "15:00", "15:30",
+                "16:00", "16:30",
+                "17:00", "17:30",
+                "18:00", "18:30",
+                "19:00", "19:30",
+                "20:00", "20:30",
+                "21:00", "21:30",
+                "22:00", "22:30",
+                "23:00", "23:30"
+            ];
+            for(let i = 0; i < 34; i++){
+                values.push([times[i].replace(/ /g, ""), date, "marceauowen@gmail.com", "Not entered", "admin", "n/a"]);
+            }
+            const closeQuery = "insert into bookings (booking_time, booking_date, email, message, booking_type, cancel_code) values ?";
+            db.query(closeQuery, [values], (err, result) => {
+                if(err){
+                    console.error("Error inserting fake bookings: " + err);
+                }
+
+                return res.json({ message: 'success' });
+            });
+        });    
+    });
+});
+
+app.post("/nextdesign/api/open-day", nextRequireAdmin, (req, res) => {
+    const date = req.body.date;
+
+    const openQuery = "delete from bookings where booking_date = ?";
+    db.query(openQuery, [date], (err, result) => {
+        if(err){
+            console.error("Error opening day: " + err);
+        }
+
+        return res.json({ message: 'success' });
+    });
+});
+
+app.post("/nextdesign/api/show-bookings", nextRequireAdmin, (req, res) => {
+    const date = req.body.date;
+
+    const getBookingsQuery = "select * from bookings where booking_date = ? and booking_type = ?";
+    db.query(getBookingsQuery, [date, "user"], (err, result) => {
+        if(err){
+            console.error("Error getting bookings: " + err);
+        }
+
+        return res.json({ message: 'success', arrayObjs: result });
+    });
+});
+
+app.post("/nextdesign/api/verify-cancel", (req, res) => {
+    const code = req.body.code;
+
+    const checkQuery = "select * from bookings where cancel_code = ?";
+    db.query(checkQuery, [code], (err, result) => {
+        if(err){
+            console.error("Error getting cancel code: " + err);
+        }
+
+        if(result.length == 0){
+            return res.json({ message: 'Failure' });
+        } else {
+            return res.json({ message: 'Success' });
+        }
+    });
+});
+
+app.post("/nextdesign/api/delete-booking", (req, res) => {
+    const code = req.body.code;
+
+    const deleteQuery = "delete from bookings where cancel_code = ?";
+    db.query(deleteQuery, [code], (err, result) => {
+        if(err){
+            console.error("Error deleting bookings: " + err);
+        }
+
+        db.query("select * from bookings where cancel_code = ?", [code], (err, result) => {
+            if(err){
+                console.error("Error selecting *: " + err);
+            }
+
+            if(result.length == 1){
+                nextSendUserDelete(result[0].email);
+                nextSendClientDelete(process.env.next_ADMIN_EMAIL, result[0].booking_date, result[0].booking_time);
+            }
+            return res.json({ message: 'success' });
+        });
+    });
+});
+
+app.post("/nextdesign/api/remove-slot", nextRequireAdmin, (req, res) => {
+    const date = req.body.date; 
+    const time = req.body.time; 
+
+    const values = [time, date, "marceauowen@gmail.com", "Not entered", "admin", "n/a"];
+    const closeQuery = "insert into bookings (booking_time, booking_date, email, message, booking_type, cancel_code) values (?, ?, ?, ?, ?, ?)";
+    db.query(closeQuery, values, (err, result) => {
+        if(err){
+            console.error("Error removing slot: " + err);
+            return res.json({ message: 'failure' });
+        }
+
+        return res.json({ message: 'success' });
+    });
+});
+
+app.post("/nextdesign/api/open-slot", nextRequireAdmin, (req, res) => {
+    const id = req.body.id;
+
+    const openSlotQuery = "delete from bookings where id = ?";
+    db.query(openSlotQuery, [id], (err, result) => {
+        if(err){
+            console.error("Error opening slot: " + err);
+        }
+
+        return res.json({ message: 'success' });
+    });
+});
+
+app.post("/nextdesign/api/create-slot", nextRequireAdmin, (req, res) => {
+    const date = req.body.date;
+    const time = req.body.time;
+
+    const insertQuery = "insert into extra_slots (booking_date, booking_time) values (?, ?)";
+    db.query(insertQuery, [date, time], (err, result) => {
+        if(err){
+            console.error("Error inserting extra slot: " + err);
+            return res.json({ message: 'failure' });
+        }
+
+        return res.json({ message: 'success' });
+    });
+});
+/*//////////////////////////////////////////////////////////////////////////////////*/
+
+
+
+
+
 app.listen(PORT, () => {
     console.log(`Server is running at http://localhost:${PORT}`);
 });

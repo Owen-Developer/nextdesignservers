@@ -1101,7 +1101,7 @@ app.post("/cadgolf/api/submit", (req, res) => {
     });
 });
 
-app.post("/cadgolf/get-events", (req, res) => {
+app.post("/cadgolf/api/get-events", (req, res) => {
     let likeStr;
     if(req.body.month < 10){
         likeStr = "%" + req.body.year + "-0" + String(req.body.month) + "%";

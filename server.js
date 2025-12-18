@@ -12,6 +12,11 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const e = require('express');
 const stripe = require("stripe")(process.env.pooja_STRIPE_SECRET_KEY);
+const twilio = require('twilio');
+const client = twilio(
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
+);
 
 const accessKey = process.env.pooja_ACCESS_KEY;
 
@@ -206,8 +211,23 @@ function poojaRequireAdmin(req, res, next){
     }
     next();
 }
+async function sendSms(message){
+    try {
+        await client.messages.create({
+            body: message,
+            from: process.env.TWILIO_PHONE,
+            to: "+3530852785232" // client number
+        });
+    } catch (err) {
+        console.error(err);
+    }
+}
 
 
+app.post("/api/send-sms", async (req, res) => {
+    await sendSms("The booking has been confirmed.");
+    return res.json({ message: 'success' });
+});
 
 app.post("/pooja/api/book-appointment", async (req, res) => {
     const date = req.body.date;

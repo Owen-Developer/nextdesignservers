@@ -169,9 +169,11 @@ async function poojaSendEmail(userEmail, code) {
     }
 }
 function poojaSendClientEmail(userEmail, date, time, email, message, services, price){ 
+    sendSms(`From NextDesign: Hello, a booking was made for PoojasBeautySalon for: ${date}, ${time}`);
     poojaSendEmail(userEmail, `<p>Hello, a booking was made for poojasbeautysalon for: ${date}, ${time}\n\nEmail: ${email}\n\nMessage: ${message}\n\nServices: ${services.replace(/,,/g, ", ")}\n\nPrice: ${price}</p>`);
 }
 function poojaSendClientFree(userEmail, date, time, email, message, code, services) { 
+    sendSms(`From NextDesign: Hello, a booking was made for PoojasBeautySalon for: ${date}, ${time}`);
     poojaSendEmail(userEmail, `<p>Hello, a booking was made for poojasbeautysalon for: ${date}, ${time}\n\nEmail: ${email}\n\nMessage: ${message}\n\nVoucher code: ${code}\n\nServices: ${services.replace(/,,/g, ", ")}\n\nThis booking was made using a voucher.</p>`);
 }
 function poojaSendClientStore(userEmail, date, time, email, message, services) { 
@@ -216,7 +218,7 @@ async function sendSms(message){
         await client.messages.create({
             body: message,
             from: process.env.TWILIO_PHONE,
-            to: "+3530852785232" // client number
+            to: "+447394142705"
         });
     } catch (err) {
         console.error(err);

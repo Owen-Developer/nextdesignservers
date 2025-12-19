@@ -71,7 +71,7 @@ const clubDb = mysql.createPool({
     queueLimit: 0
 });
 
-const poojaStore = new MySQLStore({
+const store = new MySQLStore({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
@@ -148,6 +148,7 @@ function decideDb(req, res, next){
         req.store = clubStore;
     }
 
+
     next();
 }
 app.use(decideDb);
@@ -156,21 +157,18 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.set('trust proxy', 1);
 
-app.use((req, res, next) => {
-    const sessionMiddleware = session({
-        secret: process.env.SESSION_SECRET,
-        resave: false,
-        saveUninitialized: false,
-        store: req.store,
-        cookie: { 
-            httpOnly: true,
-            maxAge: 24 * 60 * 60 * 1000, 
-            secure: true,   
-            sameSite: 'none' 
-        }
-    });
-    sessionMiddleware(req, res, next);
-});
+app.use(session({
+    store,
+    secret: process.env.pooja_SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000, 
+        secure: true,   
+        sameSite: 'none' 
+    }
+}));
 
 app.use(express.static('docs'));
 

@@ -71,13 +71,42 @@ const clubDb = mysql.createPool({
     queueLimit: 0
 });
 
-const store = new MySQLStore({
+const poojaStore = new MySQLStore({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.POOJA_DB_NAME,
     port: process.env.PORT // 24642 or 3306
 });
+const cadgolfStore = new MySQLStore({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.cadgolf_DB_NAME,
+    port: process.env.PORT // 24642 or 3306
+});
+const nextdesignStore = new MySQLStore({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.next_DB_NAME,
+    port: process.env.PORT // 24642 or 3306
+});
+const jobStore = new MySQLStore({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.job_DB_NAME,
+    port: process.env.PORT // 24642 or 3306
+});
+const clubStore = new MySQLStore({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.club_DB_NAME,
+    port: process.env.PORT // 24642 or 3306
+});
+
 
 const allowedOrigins = [
     'http://localhost:3000',
@@ -104,14 +133,19 @@ function decideDb(req, res, next){
 
     if(origin == "https://poojasbeautysalon.com"){
         req.db = poojaDb;
+        req.store = poojaStore;
     } else if(origin == "https://cadgolfperformance.com"){
         req.db = cadgolfDb;
+        req.store = cadgolfStore;
     } else if(origin == "https://nextdesignwebsite.com"){
         req.db = nextdesignDb;
+        req.store = nextdesignStore;
     } else if(origin == "https://owen-developer.github.io"){
         req.db = jobDb;
+        req.store = jobStore;
     } else if(origin == "https://club729.nextdesignwebsite.com"){
         req.db = clubDb;
+        req.store = clubStore;
     }
 
     next();
@@ -122,19 +156,21 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.set('trust proxy', 1);
 
-app.use(session({
-    store,
-    secret: process.env.pooja_SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000, 
-        //domain: '.poojasbeautysalon.com',
-        secure: true,       // HTTPS only
-        sameSite: 'none'    // allow cross-site cookies
-    }
-}));
+app.use((req, res, next) => {
+    const sessionMiddleware = session({
+        secret: process.env.SESSION_SECRET,
+        resave: false,
+        saveUninitialized: false,
+        store: req.store,
+        cookie: { 
+            httpOnly: true,
+            maxAge: 24 * 60 * 60 * 1000, 
+            secure: true,   
+            sameSite: 'none' 
+        }
+    });
+    sessionMiddleware(req, res, next);
+});
 
 app.use(express.static('docs'));
 

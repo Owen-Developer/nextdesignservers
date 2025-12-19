@@ -75,39 +75,9 @@ const store = new MySQLStore({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.POOJA_DB_NAME,
+    database: process.env.session_DB_NAME,
     port: process.env.PORT // 24642 or 3306
 });
-/*
-const cadgolfStore = new MySQLStore({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.cadgolf_DB_NAME,
-    port: process.env.PORT // 24642 or 3306
-});
-const nextdesignStore = new MySQLStore({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.next_DB_NAME,
-    port: process.env.PORT // 24642 or 3306
-});
-const jobStore = new MySQLStore({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.job_DB_NAME,
-    port: process.env.PORT // 24642 or 3306
-});
-const clubStore = new MySQLStore({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.club_DB_NAME,
-    port: process.env.PORT // 24642 or 3306
-});
-*/
 
 
 const allowedOrigins = [

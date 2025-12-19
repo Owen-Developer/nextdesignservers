@@ -78,6 +78,7 @@ const store = new MySQLStore({
     database: process.env.POOJA_DB_NAME,
     port: process.env.PORT // 24642 or 3306
 });
+/*
 const cadgolfStore = new MySQLStore({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -106,6 +107,7 @@ const clubStore = new MySQLStore({
     database: process.env.club_DB_NAME,
     port: process.env.PORT // 24642 or 3306
 });
+*/
 
 
 const allowedOrigins = [
@@ -133,19 +135,14 @@ function decideDb(req, res, next){
 
     if(origin == "https://poojasbeautysalon.com"){
         req.db = poojaDb;
-        req.store = poojaStore;
     } else if(origin == "https://cadgolfperformance.com"){
         req.db = cadgolfDb;
-        req.store = cadgolfStore;
     } else if(origin == "https://nextdesignwebsite.com"){
         req.db = nextdesignDb;
-        req.store = nextdesignStore;
     } else if(origin == "https://owen-developer.github.io"){
         req.db = jobDb;
-        req.store = jobStore;
     } else if(origin == "https://club729.nextdesignwebsite.com"){
         req.db = clubDb;
-        req.store = clubStore;
     }
 
 

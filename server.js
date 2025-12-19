@@ -85,7 +85,8 @@ const allowedOrigins = [
     'https://nextdesignwebsite.com',
     'https://cadgolfperformance.com',
     'https://poojasbeautysalon.com',
-    "https://owen-developer.github.io"
+    "https://owen-developer.github.io",
+    "https://club729.nextdesignwebsite.com"
 ];
 app.use(cors({
     origin: function (origin, callback) {

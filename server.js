@@ -86,7 +86,7 @@ const allowedOrigins = [
     'https://cadgolfperformance.com',
     'https://poojasbeautysalon.com',
     "https://owen-developer.github.io",
-    "https://club729.nextdesignwebsite.com"
+    "https://club729.exam-scope.com"
 ];
 app.use(cors({
     origin: function (origin, callback) {
@@ -112,7 +112,7 @@ function decideDb(req, res, next){
         req.db = nextdesignDb;
     } else if(origin == "https://owen-developer.github.io"){
         req.db = jobDb;
-    } else if(origin == "https://club729.nextdesignwebsite.com"){
+    } else if(origin == "https://club729.exam-scope.com"){
         req.db = clubDb;
     }
 

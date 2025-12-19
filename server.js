@@ -79,12 +79,6 @@ const store = new MySQLStore({
     port: process.env.PORT // 24642 or 3306
 });
 
-store.getConnection((err, conn) => {
-    if(err) console.error("Session store connection failed:", err);
-    else console.log("Session store connected!");
-});
-
-
 const allowedOrigins = [
     'http://localhost:3000',
     'https://nextdesignwebsite.com',

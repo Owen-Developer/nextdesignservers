@@ -110,7 +110,7 @@ function decideDb(req, res, next){
         req.db = nextdesignDb;
     } else if(origin == "https://owen-developer.github.io"){
         req.db = jobDb;
-    } else if(origin == "http://club729.nextdesignwebsite.com"){
+    } else if(origin == "https://club729.nextdesignwebsite.com"){
         req.db = clubDb;
     }
 

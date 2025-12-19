@@ -60,6 +60,16 @@ const jobDb = mysql.createPool({
     connectionLimit: 10,
     queueLimit: 0
 });
+const clubDb = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.club_DB_NAME,
+    port: process.env.PORT,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
 
 const store = new MySQLStore({
     host: process.env.DB_HOST,
@@ -100,6 +110,8 @@ function decideDb(req, res, next){
         req.db = nextdesignDb;
     } else if(origin == "https://owen-developer.github.io"){
         req.db = jobDb;
+    } else if(origin == "http://club729.nextdesignwebsite.com"){
+        req.db = clubDb;
     }
 
     next();
@@ -126,6 +138,18 @@ app.use(session({
 
 app.use(express.static('docs'));
 
+/*
+1. change url = "servers.nextdesignwebsite.com/appname"
+2. change functions to appnameFunction();
+3. change routes to /appname/api/route
+4. change db.query to req.db.query
+5. change env variables to appname_VARIABLE
+6. make new DB pool
+7. set req.db to new DB pool
+8. accept cors origin
+9. add new variables on render
+*/
+
 
 
 
@@ -144,6 +168,353 @@ function getCurrentDate() {
     return `${dd}/${mm}/${yyyy}`;
 }
 /*///////////////////////////////////////////////////////////////////////////////////*/
+
+
+
+/*//////////////////////////////////// CLUB 729 /////////////////////////////////*/
+async function clubSendApplication(name, email, phone, business, link){
+    let emailText = `
+        Hi, a new user applied for Club729.<br><br>
+
+        Name: ${name}<br><br>
+
+        Email: ${email}<br><br>
+
+        Phone: ${phone}<br><br>
+
+        Business Industry: ${business}<br><br>
+
+        Visit this link to accept their application: ${link}
+    `;
+    const dataToSend = { reciever: process.env.club_ADMIN_EMAIL, text: emailText, service: 'nextdesign' };
+    try {
+        const response = await fetch('https://email-sender-lkex.vercel.app/api/send-email', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json', 
+            },
+            body: JSON.stringify(dataToSend), 
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Error:', errorData.error);
+            return;
+        }
+    } catch (error) {
+        console.error('Error posting data:', error);
+    }
+}
+async function clubSendAcception(userEmail){
+    let emailText = `
+        Hi, your application for Club729 has been accepted.<br><br>
+
+        You can now login as a member: ${process.env.club_FRONTEND}/?login=true
+    `;
+    const dataToSend = { reciever: userEmail, text: emailText, service: 'nextdesign' };
+    try {
+        const response = await fetch('https://email-sender-lkex.vercel.app/api/send-email', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json', 
+            },
+            body: JSON.stringify(dataToSend), 
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Error:', errorData.error);
+            return;
+        }
+    } catch (error) {
+        console.error('Error posting data:', error);
+    }
+}
+function clubGetTime(){
+    const now = new Date();
+    let timeString = now.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+    });
+    if(Number(timeString.slice(0, 2)) > 12){
+        timeString = String(Number(Number(timeString.slice(0, 2)) - 12)) + timeString.slice(2) + "pm";
+    } else if(Number(timeString.slice(0, 2)) == 12){
+        timeString = timeString.slice(1) + "pm";
+    } else {
+        timeString = timeString.slice(1) + "am";
+    }
+    return timeString;
+}
+function clubRequireAdmin(req, res, next){
+    if(req.session.admin){
+        next();
+    } else {
+        return res.json({ message: 'unauth' });
+    }
+}
+
+
+app.post("/club/api/apply", (req, res) => {
+    const { name, email, phone, password, business } = req.body;
+
+    bcrypt.hash(password, 10, (err, hashedPassword) => {
+        if(err){
+            console.error(err);
+        }
+
+        const token = Math.floor(100000 + Math.random() * 900000);
+
+        req.db.query("insert into users (name, email, phone, password_hash, business, token) values (?, ?, ?, ?, ?, ?)", [name, email, phone, hashedPassword, business, token], (err, result) => {
+            if(err){
+                console.error(err);
+            }
+
+            let link = process.env.club_FRONTEND + `/?token=${token}`;
+            clubSendApplication(name, email, phone, business, link);
+            return res.json({ message: 'success' });
+        });
+    });
+});
+
+app.post("/club/api/verify-user", (req, res) => {
+    const token = req.body.token;
+
+    req.db.query("select * from users where token = ?", [token], (err, result) => {
+        if(err){
+            console.error(err);
+        } 
+
+        if(result.length == 0){
+            return res.json({ message: 'nouser' });
+        }
+
+        let userId = result[0].id;
+        let userEmail = result[0].email;
+        let userName = result[0].name;
+        req.db.query("select * from users where perms = ?", ["admin"], (err, result) => {
+            if(err){
+                console.error(err);
+            }
+
+            let newPerms = "user";
+            if(result.length == 0){
+                newPerms = "admin";
+            }
+
+            req.db.query("update users set token = ?, accepted = ?, perms = ? where id = ?", ["n/a", "yes", newPerms, userId], (err, result) => {
+                if(err){
+                    console.error(err);
+                }
+    
+                clubSendAcception(userEmail);
+                return res.json({ message: 'success', name: userName });
+            });
+        });
+    });
+});
+
+app.post("/club/api/login", (req, res) => {
+    const { name, email, password } = req.body;
+
+    req.session.destroy(err => {
+        if(err){
+            console.error(err);
+        }
+
+        req.db.query("select * from users where email = ?", [email], (err, result) => {
+            if(err){
+                console.error(err);
+            }
+    
+            if(result.length == 0 || result[0].accepted == "no"){
+                return res.json({ message: 'nouser' });
+            }
+    
+            bcrypt.compare(password, result[0].password_hash, (err, isMatch) => {
+                if(err){
+                    console.error(err);
+                }
+    
+                if(!isMatch){
+                    return res.json({ message: 'invalidpassword' });
+                }
+    
+                req.session.userId = result[0].id;
+                if(result[0].perms == "admin") req.session.admin = true;
+                return res.json({ message: 'success' });
+            });
+        });
+    });
+});
+
+app.get("/club/api/get-user", (req, res) => {
+    req.db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        if(result.length == 0){
+            return res.json({ message: 'nouser' });
+        }
+        
+        let userData = result[0];
+        userData.password_hash = "";
+        return res.json({ message: 'success', userData: userData });
+    });
+});
+
+app.post("/club/api/get-events", (req, res) => {
+    let likeStr;
+    if(req.body.month < 10){
+        likeStr = "%" + req.body.year + "-0" + String(req.body.month) + "%";
+    } else {
+        likeStr = "%" + req.body.year + "-" + String(req.body.month) + "%";
+    }
+
+    const getBookingsQuery = "select * from all_events where event_date like ?";
+    req.db.query(getBookingsQuery, [likeStr], (err, result) => {
+        if(err){
+            console.error("Error getting bookings: " + err);
+            return res.json({ bookings: [] });
+        }
+
+        return res.json({ bookings: result });
+    });
+});
+
+app.get("/club/api/get-chats", (req, res) => {
+    req.db.query("select * from chats order by id asc", (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        const chats = result;
+        req.db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
+            if(err){
+                console.error(err);
+            }
+
+            return res.json({ message: 'success', chats: chats, name: result[0].name });
+        });
+    });
+});
+
+app.post("/club/api/send-chat", (req, res) => {
+    const message = req.body.message;
+    let isAdmin = "no";
+    if(req.session.admin) isAdmin = "yes";
+
+    req.db.query("insert into chats (user_id, message, full_date, full_time, is_admin) values (?, ?, ?, ?, ?)", [req.session.userId, message, getCurrentDate(), clubGetTime(), isAdmin], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        return res.json({ message: 'success' });
+    });
+});
+
+app.get("/club/api/get-announcements", (req, res) => {
+    req.db.query("select * from announcements order by id desc", (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        const ancs = result;
+        req.db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
+            if(err){
+                console.error(err);
+            }
+
+            const userData = result[0];
+            userData.password_hash = "";
+            return res.json({ message: 'success', announcements: ancs, userData: userData });
+        });
+    });
+});
+
+app.post("/club/api/post-announcement", clubRequireAdmin, (req, res) => {
+    const { heading, message } = req.body;
+
+    req.db.query("insert into announcements (user_id, full_date, head, para) values (?, ?, ?, ?)", [req.session.userId, getCurrentDate(), heading, message], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        return res.json({ message: 'success' });
+    })
+});
+
+app.post("/club/api/create-event", clubRequireAdmin, (req, res) => {
+    let { title, description, date } = req.body;
+
+    if(date.length != 10 || isNaN(date.slice(0, 2)) || isNaN(date.slice(3, 5)) || isNaN(date.slice(6)) || date[2] != "/" || date[5] != "/"){
+        return res.json({ message: 'invaliddate' });
+    }
+
+    date = `${date.slice(-4)}-${date.slice(3, 5)}-${date.slice(0, 2)}`;
+    req.db.query("insert into all_events (title, event_date, event_description) values (?, ?, ?)", [title, date, description], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        return res.json({ message: 'success' });
+    });
+});
+
+app.post("/club/api/edit-event", clubRequireAdmin, (req, res) => {
+    let { title, description, date, id } = req.body;
+
+    if(date.length != 10 || isNaN(date.slice(0, 2)) || isNaN(date.slice(3, 5)) || isNaN(date.slice(6)) || date[2] != "/" || date[5] != "/"){
+        return res.json({ message: 'invaliddate' });
+    }
+
+    date = `${date.slice(-4)}-${date.slice(3, 5)}-${date.slice(0, 2)}`;
+    req.db.query("update all_events set title = ?, event_date = ?, event_description = ? where id = ?", [title, date, description, id], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        return res.json({ message: 'success' });
+    });
+});
+
+app.get("/club/api/get-members", clubRequireAdmin, (req, res) => {
+    req.db.query("select * from users where accepted = ? and perms = ? order by name asc", ["yes", "user"], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        let userData = result;
+        userData.forEach(user => {
+            user.password_hash = "";
+        });
+        return res.json({ message: 'success', members: userData });
+    });
+});
+
+app.post("/club/api/delete-user", clubRequireAdmin, (req, res) => {
+    req.db.query("delete from users where id = ?", [req.body.id], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        return res.json({ message: 'success' });
+    });
+});
+
+app.post("/club/api/delete-event", clubRequireAdmin, (req, res) => {
+    req.db.query("delete from all_events where id = ?", [req.body.id], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        return res.json({ message: 'success' });
+    });
+});
+/*///////////////////////////////////////////////////////////////////////////////*/
+
+
 
 
 
@@ -226,7 +597,7 @@ async function sendSms(message){
 }
 
 
-app.post("/api/send-sms", async (req, res) => {
+app.post("/club/api/send-sms", async (req, res) => {
     await sendSms("The booking has been confirmed.");
     return res.json({ message: 'success' });
 });
@@ -1097,10 +1468,6 @@ async function cadgolfSendEmail(userEmail, text) {
 function cadgolfSendClientNotification(event, name, players, email){
     cadgolfSendEmail(process.env.cadgolf_ADMIN_EMAIL, `<p>Hi, a new booking was made from your website by ${name}.<br><br>Event: ${event}<br><br>Players: ${players.replace(/,,/g, ", ")}<br><br> Email: ${email}`);
     cadgolfSendEmail("jackbaileywoods@gmail.com", `<p>Hi, a new booking was made from your website by ${name}.<br><br>Event: ${event}<br><br>Players: ${players.replace(/,,/g, ", ")}<br><br> Email: ${email}`);
-}
-function isValidEmail(email){
-	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-	return emailRegex.test(email);
 }
 
 

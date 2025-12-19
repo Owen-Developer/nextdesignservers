@@ -91,14 +91,18 @@ const allowedOrigins = [
 app.use(cors({
     origin: function (origin, callback) {
         if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) return callback(null, origin); // <— exact origin
-        return callback(new Error('CORS not allowed from this origin'));
+
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('CORS not allowed from this origin'));
+        }
     },
     credentials: true
 }));
-app.options('*', cors());
 
 function decideDb(req, res, next){
+    console.log("ORIGIN: " + req.headers.origin);
     const origin = req.headers.origin;
 
     if(origin == "https://poojasbeautysalon.com"){

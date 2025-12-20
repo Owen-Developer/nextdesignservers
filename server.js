@@ -1848,6 +1848,29 @@ app.post("/nextdesign/api/create-slot", nextRequireAdmin, (req, res) => {
 
 
 ////////////////////////// JOB TRACKER APP //////////////////////////
+async function jobSendEmail(userEmail, text) {
+    const dataToSend = { reciever: userEmail, text: `${text}`, service: 'nextdesign' };
+    try {
+        const response = await fetch('https://email-sender-lkex.vercel.app/api/send-email', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json', 
+            },
+            body: JSON.stringify(dataToSend), 
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Error:', errorData.error);
+            return;
+        }
+    } catch (error) {
+        console.error('Error posting data:', error);
+    }
+}
+function jobSendVerificationCode(userEmail, code){
+    jobSendEmail(userEmail, "Your verification code is " + code);
+}
 function jobGetTime(){
     const months = [
     "Jan",
@@ -2473,6 +2496,58 @@ app.post("/job/api/delete-price", (req, res) => {
         }
 
         return res.json({ message: 'success' });
+    });
+});
+
+app.post("/api/send-code", (req, res) => {
+    db.query("select * from users where email = ?", [req.body.email], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        if(result.length == 0){
+            return res.json({ message: 'noemail' });
+        }
+
+        const code = Math.floor(100000 + Math.random() * 900000);
+        jobSendVerificationCode(result[0].email, code);
+        db.query("update users set verification_code = ? where id = ?", [code, result[0].id], (err, result) => {
+            if(err){
+                console.error(err);
+            }
+            
+            return res.json({ message: 'success' });
+        });
+    });
+});
+
+app.post("/api/verify", (req, res) => {
+    const { code, password } = req.body;
+
+    db.query("select * from users where verification_code = ?", [code], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        if(result.length == 0){
+            return res.json({ message: 'codeerror' });
+        }
+
+        let userId = result[0].id;
+        bcrypt.hash(password, 10, (err, hashedPassword) => {
+            if(err){
+                console.error(err);
+            }
+
+            db.query("update users set password_hash = ?, verification_code = ? where id = ?", [hashedPassword, "n/a", userId], (err, result) => {
+                if(err){
+                    console.error(err);
+                }
+
+                req.session.userId = userId;
+                return res.json({ message: 'success' });
+            });
+        });
     });
 });
 /*/////////////////////////////////////////////////////////////////*/

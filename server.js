@@ -318,33 +318,27 @@ app.post("/club/api/verify-user", (req, res) => {
 app.post("/club/api/login", (req, res) => {
     const { name, email, password } = req.body;
 
-    req.session.destroy(err => {
+    req.db.query("select * from users where email = ?", [email], (err, result) => {
         if(err){
             console.error(err);
         }
 
-        req.db.query("select * from users where email = ?", [email], (err, result) => {
+        if(result.length == 0 || result[0].accepted == "no"){
+            return res.json({ message: 'nouser' });
+        }
+
+        bcrypt.compare(password, result[0].password_hash, (err, isMatch) => {
             if(err){
                 console.error(err);
             }
-    
-            if(result.length == 0 || result[0].accepted == "no"){
-                return res.json({ message: 'nouser' });
+
+            if(!isMatch){
+                return res.json({ message: 'invalidpassword' });
             }
-    
-            bcrypt.compare(password, result[0].password_hash, (err, isMatch) => {
-                if(err){
-                    console.error(err);
-                }
-    
-                if(!isMatch){
-                    return res.json({ message: 'invalidpassword' });
-                }
-    
-                req.session.userId = result[0].id;
-                if(result[0].perms == "admin") req.session.admin = true;
-                return res.json({ message: 'success' });
-            });
+
+            req.session.userId = result[0].id;
+            if(result[0].perms == "admin") req.session.admin = true;
+            return res.json({ message: 'success' });
         });
     });
 });

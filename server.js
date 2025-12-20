@@ -143,7 +143,7 @@ app.use(express.static('docs'));
 1. change url = "servers.nextdesignwebsite.com/appname"
 2. change functions to appnameFunction();
 3. change routes to /appname/api/route
-4. change db.query to req.db.query
+4. change req.db.query to req.db.query
 5. change env variables to appname_VARIABLE
 6. make new DB pool
 7. set req.db to new DB pool
@@ -2499,8 +2499,8 @@ app.post("/job/api/delete-price", (req, res) => {
     });
 });
 
-app.post("/api/send-code", (req, res) => {
-    db.query("select * from users where email = ?", [req.body.email], (err, result) => {
+app.post("/job/api/send-code", (req, res) => {
+    req.db.query("select * from users where email = ?", [req.body.email], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -2511,7 +2511,7 @@ app.post("/api/send-code", (req, res) => {
 
         const code = Math.floor(100000 + Math.random() * 900000);
         jobSendVerificationCode(result[0].email, code);
-        db.query("update users set verification_code = ? where id = ?", [code, result[0].id], (err, result) => {
+        req.db.query("update users set verification_code = ? where id = ?", [code, result[0].id], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -2521,10 +2521,10 @@ app.post("/api/send-code", (req, res) => {
     });
 });
 
-app.post("/api/verify", (req, res) => {
+app.post("/job/api/verify", (req, res) => {
     const { code, password } = req.body;
 
-    db.query("select * from users where verification_code = ?", [code], (err, result) => {
+    req.db.query("select * from users where verification_code = ?", [code], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -2539,7 +2539,7 @@ app.post("/api/verify", (req, res) => {
                 console.error(err);
             }
 
-            db.query("update users set password_hash = ?, verification_code = ? where id = ?", [hashedPassword, "n/a", userId], (err, result) => {
+            req.db.query("update users set password_hash = ?, verification_code = ? where id = ?", [hashedPassword, "n/a", userId], (err, result) => {
                 if(err){
                     console.error(err);
                 }

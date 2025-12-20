@@ -336,6 +336,7 @@ app.post("/club/api/login", (req, res) => {
                 return res.json({ message: 'invalidpassword' });
             }
 
+            req.session.admin = false;
             req.session.userId = result[0].id;
             if(result[0].perms == "admin") req.session.admin = true;
             return res.json({ message: 'success' });

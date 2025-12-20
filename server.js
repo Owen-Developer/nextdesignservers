@@ -508,6 +508,33 @@ app.post("/club/api/delete-event", clubRequireAdmin, (req, res) => {
         return res.json({ message: 'success' });
     });
 });
+
+app.get("/club/api/get-applications", clubRequireAdmin, (req, res) => {
+    req.db.query("select  * from users where accepted = ?", ["no"], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        let userData = result;
+        userData.forEach(member => {
+            member.password_hash = "";
+        });
+        return res.json({ message: 'success', members: userData });
+    });
+});
+
+app.post("/club/api/accept-member", clubRequireAdmin, (req, res) => {
+    const userId = req.body.id;
+
+    req.db.query("update users set accepted = ? where id = ?", ["yes", userId], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        sendAcception(req.body.email);
+        return res.json({ message: 'success' });
+    });
+});
 /*///////////////////////////////////////////////////////////////////////////////*/
 
 

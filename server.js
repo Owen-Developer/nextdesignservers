@@ -19,6 +19,7 @@ const client = twilio(
 );
 
 const accessKey = process.env.pooja_ACCESS_KEY;
+const url = process.env.pooja_FRONTEND_URL;
 
 const poojaDb = mysql.createPool({
     host: process.env.DB_HOST,

@@ -653,7 +653,6 @@ app.post("/pooja/api/book-appointment", async (req, res) => {
         paymentStr = "Not Paid Yet";
     }
 
-    console.log(req.body.inStore);
     if(req.body.inStore == "paid" || req.body.inStore == "unpaid" || req.body.inStore == "true"){
         let values = [];
         let emailFinish;
@@ -690,8 +689,8 @@ app.post("/pooja/api/book-appointment", async (req, res) => {
             values.push([date, newTime, email, message, code, services, rowType, price, cancelCode, paymentStr, timeTaken, finishTime]);
         }
 
-        //poojaSendClientStore(process.env.pooja_ADMIN_EMAIL, date, time + " - " + emailFinish, email, message, services);
-        //poojaSendUserFree(email, date, time + " - " + emailFinish, cancelLink);
+        poojaSendClientStore(process.env.pooja_ADMIN_EMAIL, date, time + " - " + emailFinish, email, message, services);
+        poojaSendUserFree(email, date, time + " - " + emailFinish, cancelLink);
 
         const insertQuery = "insert into bookings (booking_date, booking_time, email, message, coupon_code, services, booking_type, price, cancel_code, payment_status, time_taken, finish_time) values ?";
         req.db.query(insertQuery, [values], (err, result) => {

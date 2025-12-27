@@ -1933,8 +1933,8 @@ function jobGetTime(){
     }
     return `${monthTxt} ${monthNum}, ${yearNum} at ${timeString}`;
 }
-function jobCreateNoti(userId, title, type, reciever){
-    req.db.query("insert into notifications (user_id, title, full_date, type, status, reciever) values (?, ?, ?, ?, ?, ?)", [userId, title, jobGetTime(), type, "unread", reciever], (err, result) => {
+function jobCreateNoti(reqDb, userId, title, type, reciever){
+    reqDb.query("insert into notifications (user_id, title, full_date, type, status, reciever) values (?, ?, ?, ?, ?, ?)", [userId, title, jobGetTime(), type, "unread", reciever], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -2193,7 +2193,7 @@ app.post("/job/api/send-summary", (req, res) => {
                     console.error(err);
                 }
         
-                await jobCreateNoti(0, "'" + jobName + "' has been completed.", "finished", "admin");
+                await jobCreateNoti(req.db, 0, "'" + jobName + "' has been completed.", "finished", "admin");
                 return res.json({ message: 'success' });
             });
         });
@@ -2279,7 +2279,7 @@ app.post("/job/api/change-password", (req, res) => {
                         console.error(err);
                     }
 
-                    await jobCreateNoti(req.session.userId, "You password has recently been changed.", "password", "worker");
+                    await jobCreateNoti(req.db, req.session.userId, "You password has recently been changed.", "password", "worker");
                     return res.json({ message: 'success' });
                 });
             });    
@@ -2313,7 +2313,7 @@ app.post("/job/api/create-job", (req, res) => {
             console.error(err);
         }
 
-        await jobCreateNoti(workerId, "You have been assigned to a new job.", "job", "worker");
+        await jobCreateNoti(req.db, workerId, "You have been assigned to a new job.", "job", "worker");
         return res.json({ message: 'success' });
     });
 });
@@ -2330,7 +2330,7 @@ app.post("/job/api/edit-job", (req, res) => {
             console.error(err);
         }
 
-        await jobCreateNoti(editWorkerId, "Your job details have recently been edited.", "job", "worker");
+        await jobCreateNoti(req.db, editWorkerId, "Your job details have recently been edited.", "job", "worker");
         return res.json({ message: 'success' });
     });
 });
@@ -2343,7 +2343,7 @@ app.post("/job/api/delete-job", (req, res) => {
                 console.error(err);
             }
     
-            await jobCreateNoti(workerId, "One of your job have recently been cancelled.", "job", "worker");
+            await jobCreateNoti(req.db, workerId, "One of your job have recently been cancelled.", "job", "worker");
             return res.json({ message: 'success' });
         });
     });

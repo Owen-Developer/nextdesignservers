@@ -340,12 +340,14 @@ app.post("/club/api/login", (req, res) => {
             req.session.admin = false;
             req.session.userId = result[0].id;
             if(result[0].perms == "admin") req.session.admin = true;
+            console.log(req.session.userId);
             return res.json({ message: 'success' });
         });
     });
 });
 
 app.get("/club/api/get-user", (req, res) => {
+    console.log(req.session.userId);
     req.db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
         if(err){
             console.error(err);

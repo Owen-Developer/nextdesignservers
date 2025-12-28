@@ -133,8 +133,9 @@ app.use(session({
     cookie: {
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000, 
+        domain: '.poojasbeautysalon.com',
         secure: true,   
-        sameSite: 'none' 
+        sameSite: 'none'
     }
 }));
 

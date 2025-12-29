@@ -251,9 +251,29 @@ function clubGetTime(){
     return timeString;
 }
 function clubRequireAdmin(req, res, next){
-    if(req.session.admin){
+    if(req.user.admin){
         next();
     } else {
+        return res.json({ message: 'unauth' });
+    }
+}
+function clubRequireAuth(req, res, next) {
+    const header = req.headers.authorization;
+
+    if (!header){
+        console.log("unauth");
+        return res.json({ message: 'unauth' });
+    } 
+        
+
+    const token = header.split(" ")[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch {
+        console.log("unauth 2");
         return res.json({ message: 'unauth' });
     }
 }
@@ -339,16 +359,25 @@ app.post("/club/api/login", (req, res) => {
                 return res.json({ message: 'invalidpassword' });
             }
 
-            req.session.admin = false;
-            req.session.userId = result[0].id;
-            if(result[0].perms == "admin") req.session.admin = true;
-            return res.json({ message: 'success' });
+            let isAdmin = false;
+            if(result[0].perms == "admin") isAdmin = true;
+
+            const payload = {
+                userId: result[0].id,
+                admin: isAdmin
+            };
+            const token = jwt.sign(
+                payload,
+                process.env.JWT_SECRET,
+                { expiresIn: "60m" }
+            );
+            return res.json({ message: 'success', token: token });
         });
     });
 });
 
-app.get("/club/api/get-user", (req, res) => {
-    req.db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
+app.get("/club/api/get-user", clubRequireAuth, (req, res) => {
+    req.db.query("select * from users where id = ?", [req.user.userId], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -382,14 +411,14 @@ app.post("/club/api/get-events", (req, res) => {
     });
 });
 
-app.get("/club/api/get-chats", (req, res) => {
+app.get("/club/api/get-chats", clubRequireAuth, (req, res) => {
     req.db.query("select * from chats order by id asc", (err, result) => {
         if(err){
             console.error(err);
         }
 
         const chats = result;
-        req.db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
+        req.db.query("select * from users where id = ?", [req.user.userId], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -399,12 +428,12 @@ app.get("/club/api/get-chats", (req, res) => {
     });
 });
 
-app.post("/club/api/send-chat", (req, res) => {
+app.post("/club/api/send-chat", clubRequireAuth, (req, res) => {
     const message = req.body.message;
     let isAdmin = "no";
-    if(req.session.admin) isAdmin = "yes";
+    if(req.user.admin) isAdmin = "yes";
 
-    req.db.query("insert into chats (user_id, message, full_date, full_time, is_admin) values (?, ?, ?, ?, ?)", [req.session.userId, message, getCurrentDate(), clubGetTime(), isAdmin], (err, result) => {
+    req.db.query("insert into chats (user_id, message, full_date, full_time, is_admin) values (?, ?, ?, ?, ?)", [req.user.userId, message, getCurrentDate(), clubGetTime(), isAdmin], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -413,14 +442,14 @@ app.post("/club/api/send-chat", (req, res) => {
     });
 });
 
-app.get("/club/api/get-announcements", (req, res) => {
+app.get("/club/api/get-announcements", clubRequireAuth, (req, res) => {
     req.db.query("select * from announcements order by id desc", (err, result) => {
         if(err){
             console.error(err);
         }
 
         const ancs = result;
-        req.db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
+        req.db.query("select * from users where id = ?", [req.user.userId], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -432,10 +461,10 @@ app.get("/club/api/get-announcements", (req, res) => {
     });
 });
 
-app.post("/club/api/post-announcement", clubRequireAdmin, (req, res) => {
+app.post("/club/api/post-announcement", clubRequireAuth, clubRequireAdmin, (req, res) => {
     const { heading, message } = req.body;
 
-    req.db.query("insert into announcements (user_id, full_date, head, para) values (?, ?, ?, ?)", [req.session.userId, getCurrentDate(), heading, message], (err, result) => {
+    req.db.query("insert into announcements (user_id, full_date, head, para) values (?, ?, ?, ?)", [req.user.userId, getCurrentDate(), heading, message], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -444,7 +473,7 @@ app.post("/club/api/post-announcement", clubRequireAdmin, (req, res) => {
     })
 });
 
-app.post("/club/api/create-event", clubRequireAdmin, (req, res) => {
+app.post("/club/api/create-event", clubRequireAuth, clubRequireAdmin, (req, res) => {
     let { title, description, date } = req.body;
 
     if(date.length != 10 || isNaN(date.slice(0, 2)) || isNaN(date.slice(3, 5)) || isNaN(date.slice(6)) || date[2] != "/" || date[5] != "/"){
@@ -461,7 +490,7 @@ app.post("/club/api/create-event", clubRequireAdmin, (req, res) => {
     });
 });
 
-app.post("/club/api/edit-event", clubRequireAdmin, (req, res) => {
+app.post("/club/api/edit-event", clubRequireAuth, clubRequireAdmin, (req, res) => {
     let { title, description, date, id } = req.body;
 
     if(date.length != 10 || isNaN(date.slice(0, 2)) || isNaN(date.slice(3, 5)) || isNaN(date.slice(6)) || date[2] != "/" || date[5] != "/"){
@@ -478,7 +507,7 @@ app.post("/club/api/edit-event", clubRequireAdmin, (req, res) => {
     });
 });
 
-app.get("/club/api/get-members", clubRequireAdmin, (req, res) => {
+app.get("/club/api/get-members", clubRequireAuth, clubRequireAdmin, (req, res) => {
     req.db.query("select * from users where accepted = ? and perms = ? order by name asc", ["yes", "user"], (err, result) => {
         if(err){
             console.error(err);
@@ -492,7 +521,7 @@ app.get("/club/api/get-members", clubRequireAdmin, (req, res) => {
     });
 });
 
-app.post("/club/api/delete-user", clubRequireAdmin, (req, res) => {
+app.post("/club/api/delete-user", clubRequireAuth, clubRequireAdmin, (req, res) => {
     req.db.query("delete from users where id = ?", [req.body.id], (err, result) => {
         if(err){
             console.error(err);
@@ -502,7 +531,7 @@ app.post("/club/api/delete-user", clubRequireAdmin, (req, res) => {
     });
 });
 
-app.post("/club/api/delete-event", clubRequireAdmin, (req, res) => {
+app.post("/club/api/delete-event", clubRequireAuth, clubRequireAdmin, (req, res) => {
     req.db.query("delete from all_events where id = ?", [req.body.id], (err, result) => {
         if(err){
             console.error(err);
@@ -512,7 +541,7 @@ app.post("/club/api/delete-event", clubRequireAdmin, (req, res) => {
     });
 });
 
-app.get("/club/api/get-applications", clubRequireAdmin, (req, res) => {
+app.get("/club/api/get-applications", clubRequireAuth, clubRequireAdmin, (req, res) => {
     req.db.query("select  * from users where accepted = ?", ["no"], (err, result) => {
         if(err){
             console.error(err);
@@ -526,7 +555,7 @@ app.get("/club/api/get-applications", clubRequireAdmin, (req, res) => {
     });
 });
 
-app.post("/club/api/accept-member", clubRequireAdmin, (req, res) => {
+app.post("/club/api/accept-member", clubRequireAuth, clubRequireAdmin, (req, res) => {
     const userId = req.body.id;
 
     req.db.query("update users set accepted = ? where id = ?", ["yes", userId], (err, result) => {

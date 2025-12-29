@@ -365,6 +365,7 @@ app.post("/club/api/login", (req, res) => {
 
             const payload = {
                 userId: result[0].id,
+                name: result[0].name,
                 admin: isAdmin
             };
             const token = jwt.sign(
@@ -419,7 +420,7 @@ app.get("/club/api/get-chats", clubRequireAuth, (req, res) => {
         }
 
         const chats = result;
-        req.db.query("select * from users where id = ?", [req.user.userId], (err, result) => {
+        req.db.query("select * from users", [req.user.userId], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -434,7 +435,7 @@ app.post("/club/api/send-chat", clubRequireAuth, (req, res) => {
     let isAdmin = "no";
     if(req.user.admin) isAdmin = "yes";
 
-    req.db.query("insert into chats (user_id, message, full_date, full_time, is_admin) values (?, ?, ?, ?, ?)", [req.user.userId, message, getCurrentDate(), clubGetTime(), isAdmin], (err, result) => {
+    req.db.query("insert into chats (user_id, name, message, full_date, full_time, is_admin) values (?, ?, ?, ?, ?, ?)", [req.user.userId, req.user.name, message, getCurrentDate(), getTime(), isAdmin], (err, result) => {
         if(err){
             console.error(err);
         }

@@ -17,6 +17,7 @@ const client = twilio(
     process.env.TWILIO_ACCOUNT_SID,
     process.env.TWILIO_AUTH_TOKEN
 );
+const jwt = require("jsonwebtoken");
 
 const accessKey = process.env.pooja_ACCESS_KEY;
 const url = process.env.pooja_FRONTEND_URL;

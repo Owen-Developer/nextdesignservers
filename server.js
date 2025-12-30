@@ -144,6 +144,27 @@ app.use(session({
 app.use(express.static('docs'));
 
 /*
+FOR JWT SESSIONS
+1. make requireAuth function in server
+2. send token to frontend in /login
+            const payload = {
+                userId: result[0].id,
+                name: result[0].name,
+                admin: isAdmin
+            };
+            const token = jwt.sign(
+                payload,
+                process.env.JWT_SECRET,
+                { expiresIn: "60m" }
+            );
+            return res.json({ message: 'success', token: token });
+3. replace all rq.session -> rq.user
+4. add function middleware everywhere req.user is used, including other middleware
+5. add const jwt = require("jsonwebtoken"); :)
+6. add to JS: headers: { Authorization: `Bearer ${localStorage.getItem("token")}`, }
+*/
+
+/*
 1. change url = "servers.nextdesignwebsite.com/appname"
 2. change functions to appnameFunction();
 3. change routes to /appname/api/route
@@ -171,6 +192,27 @@ function getCurrentDate() {
     const yyyy = today.getFullYear();
 
     return `${dd}/${mm}/${yyyy}`;
+}
+function requireAuth(req, res, next) {
+    const header = req.headers.authorization;
+
+    if (!header){
+        console.log("unauth");
+        req.user = null;
+        return next();
+    } 
+        
+
+    const token = header.split(" ")[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
+    } catch {
+        console.log("unauth 2");
+        req.user = null;
+    }
+    next();
 }
 /*///////////////////////////////////////////////////////////////////////////////////*/
 
@@ -255,26 +297,6 @@ function clubRequireAdmin(req, res, next){
     if(req.user.admin){
         next();
     } else {
-        return res.json({ message: 'unauth' });
-    }
-}
-function clubRequireAuth(req, res, next) {
-    const header = req.headers.authorization;
-
-    if (!header){
-        console.log("unauth");
-        return res.json({ message: 'unauth' });
-    } 
-        
-
-    const token = header.split(" ")[1];
-
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
-        next();
-    } catch {
-        console.log("unauth 2");
         return res.json({ message: 'unauth' });
     }
 }
@@ -378,7 +400,7 @@ app.post("/club/api/login", (req, res) => {
     });
 });
 
-app.get("/club/api/get-user", clubRequireAuth, (req, res) => {
+app.get("/club/api/get-user", requireAuth, (req, res) => {
     req.db.query("select * from users where id = ?", [req.user.userId], (err, result) => {
         if(err){
             console.error(err);
@@ -413,7 +435,7 @@ app.post("/club/api/get-events", (req, res) => {
     });
 });
 
-app.get("/club/api/get-chats", clubRequireAuth, (req, res) => {
+app.get("/club/api/get-chats", requireAuth, (req, res) => {
     req.db.query("select * from chats order by id asc", (err, result) => {
         if(err){
             console.error(err);
@@ -430,7 +452,7 @@ app.get("/club/api/get-chats", clubRequireAuth, (req, res) => {
     });
 });
 
-app.post("/club/api/send-chat", clubRequireAuth, (req, res) => {
+app.post("/club/api/send-chat", requireAuth, (req, res) => {
     const message = req.body.message;
     let isAdmin = "no";
     if(req.user.admin) isAdmin = "yes";
@@ -444,7 +466,7 @@ app.post("/club/api/send-chat", clubRequireAuth, (req, res) => {
     });
 });
 
-app.get("/club/api/get-announcements", clubRequireAuth, (req, res) => {
+app.get("/club/api/get-announcements", requireAuth, (req, res) => {
     req.db.query("select * from announcements order by id desc", (err, result) => {
         if(err){
             console.error(err);
@@ -463,7 +485,7 @@ app.get("/club/api/get-announcements", clubRequireAuth, (req, res) => {
     });
 });
 
-app.post("/club/api/post-announcement", clubRequireAuth, clubRequireAdmin, (req, res) => {
+app.post("/club/api/post-announcement", requireAuth, clubRequireAdmin, (req, res) => {
     const { heading, message } = req.body;
 
     req.db.query("insert into announcements (user_id, full_date, head, para) values (?, ?, ?, ?)", [req.user.userId, getCurrentDate(), heading, message], (err, result) => {
@@ -475,7 +497,7 @@ app.post("/club/api/post-announcement", clubRequireAuth, clubRequireAdmin, (req,
     })
 });
 
-app.post("/club/api/create-event", clubRequireAuth, clubRequireAdmin, (req, res) => {
+app.post("/club/api/create-event", requireAuth, clubRequireAdmin, (req, res) => {
     let { title, description, date } = req.body;
 
     if(date.length != 10 || isNaN(date.slice(0, 2)) || isNaN(date.slice(3, 5)) || isNaN(date.slice(6)) || date[2] != "/" || date[5] != "/"){
@@ -492,7 +514,7 @@ app.post("/club/api/create-event", clubRequireAuth, clubRequireAdmin, (req, res)
     });
 });
 
-app.post("/club/api/edit-event", clubRequireAuth, clubRequireAdmin, (req, res) => {
+app.post("/club/api/edit-event", requireAuth, clubRequireAdmin, (req, res) => {
     let { title, description, date, id } = req.body;
 
     if(date.length != 10 || isNaN(date.slice(0, 2)) || isNaN(date.slice(3, 5)) || isNaN(date.slice(6)) || date[2] != "/" || date[5] != "/"){
@@ -509,7 +531,7 @@ app.post("/club/api/edit-event", clubRequireAuth, clubRequireAdmin, (req, res) =
     });
 });
 
-app.get("/club/api/get-members", clubRequireAuth, clubRequireAdmin, (req, res) => {
+app.get("/club/api/get-members", requireAuth, clubRequireAdmin, (req, res) => {
     req.db.query("select * from users where accepted = ? and perms = ? order by name asc", ["yes", "user"], (err, result) => {
         if(err){
             console.error(err);
@@ -523,7 +545,7 @@ app.get("/club/api/get-members", clubRequireAuth, clubRequireAdmin, (req, res) =
     });
 });
 
-app.post("/club/api/delete-user", clubRequireAuth, clubRequireAdmin, (req, res) => {
+app.post("/club/api/delete-user", requireAuth, clubRequireAdmin, (req, res) => {
     req.db.query("delete from users where id = ?", [req.body.id], (err, result) => {
         if(err){
             console.error(err);
@@ -533,7 +555,7 @@ app.post("/club/api/delete-user", clubRequireAuth, clubRequireAdmin, (req, res) 
     });
 });
 
-app.post("/club/api/delete-event", clubRequireAuth, clubRequireAdmin, (req, res) => {
+app.post("/club/api/delete-event", requireAuth, clubRequireAdmin, (req, res) => {
     req.db.query("delete from all_events where id = ?", [req.body.id], (err, result) => {
         if(err){
             console.error(err);
@@ -543,7 +565,7 @@ app.post("/club/api/delete-event", clubRequireAuth, clubRequireAdmin, (req, res)
     });
 });
 
-app.get("/club/api/get-applications", clubRequireAuth, clubRequireAdmin, (req, res) => {
+app.get("/club/api/get-applications", requireAuth, clubRequireAdmin, (req, res) => {
     req.db.query("select  * from users where accepted = ?", ["no"], (err, result) => {
         if(err){
             console.error(err);
@@ -557,7 +579,7 @@ app.get("/club/api/get-applications", clubRequireAuth, clubRequireAdmin, (req, r
     });
 });
 
-app.post("/club/api/accept-member", clubRequireAuth, clubRequireAdmin, (req, res) => {
+app.post("/club/api/accept-member", requireAuth, clubRequireAdmin, (req, res) => {
     const userId = req.body.id;
 
     req.db.query("update users set accepted = ? where id = ?", ["yes", userId], (err, result) => {
@@ -637,7 +659,7 @@ function poojaGenerateNumber(){
     return crypto.randomBytes(5).toString('hex'); 
 }
 function poojaRequireAdmin(req, res, next){
-    if(!req.session.admin && false){
+    if(!req.user.admin){
         return res.json({ message: 'Unauth' });
     }
     next();
@@ -660,7 +682,7 @@ app.post("/club/api/send-sms", async (req, res) => {
     return res.json({ message: 'success' });
 });
 
-app.post("/pooja/api/book-appointment", async (req, res) => {
+app.post("/pooja/api/book-appointment", requireAuth, async (req, res) => {
     const date = req.body.date;
     const time = req.body.time;
     const email = req.body.email;
@@ -680,9 +702,9 @@ app.post("/pooja/api/book-appointment", async (req, res) => {
     const cancelLink = url + "/bookings.html?cancel=" + cancelCode;
 
     let paymentStr = "Not Paid Yet (instore)";
-    if(req.body.inStore == "paid" && req.session.admin){
+    if(req.body.inStore == "paid" && req.user.admin){
         paymentStr = "Paid in Store";
-    } else if(req.body.inStore == "unpaid" && req.session.admin){
+    } else if(req.body.inStore == "unpaid" && req.user.admin){
         paymentStr = "Not Paid Yet";
     }
 
@@ -1068,15 +1090,22 @@ app.post("/pooja/api/admin-access", (req, res) => {
     const code = req.body.code;
 
     if(code == accessKey){
-        req.session.admin = true;
-        return res.json({ message: 'Success' });
+        const payload = {
+            admin: true
+        };
+        const token = jwt.sign(
+            payload,
+            process.env.JWT_SECRET,
+            { expiresIn: "60m" }
+        );
+        return res.json({ message: 'Success', token: token });
     } else {
         return res.json({ message: 'Failure' });
     }
 });
 
-app.get("/pooja/api/check-admin", (req, res) => {
-    if(req.session.admin){
+app.get("/pooja/api/check-admin", requireAuth, (req, res) => {
+    if(req.user.admin){
         return res.json({ message: 'Success' });
     } else {
         return res.json({ message: 'Failure' });
@@ -1187,7 +1216,7 @@ app.post("/pooja/api/delete-booking", (req, res, next) => {
     });
 });
 
-app.post("/pooja/api/close-all", poojaRequireAdmin, (req, res) => {
+app.post("/pooja/api/close-all", requireAuth, poojaRequireAdmin, (req, res) => {
     const date = req.body.date;
 
     const getEmailsQuery = "select * from bookings where booking_date = ?";
@@ -1238,7 +1267,7 @@ app.post("/pooja/api/close-all", poojaRequireAdmin, (req, res) => {
     });
 });
 
-app.post("/pooja/api/show-bookings", poojaRequireAdmin, (req, res) => {
+app.post("/pooja/api/show-bookings", requireAuth, poojaRequireAdmin, (req, res) => {
     const date = req.body.date;
 
     const getBookingsQuery = "select * from bookings where booking_date = ? and booking_type = ?";
@@ -1251,7 +1280,7 @@ app.post("/pooja/api/show-bookings", poojaRequireAdmin, (req, res) => {
     });
 });
 
-app.post("/pooja/api/open-day", poojaRequireAdmin, (req, res) => {
+app.post("/pooja/api/open-day", requireAuth, poojaRequireAdmin, (req, res) => {
     const date = req.body.date;
 
     const openQuery = "delete from bookings where booking_date = ?";
@@ -1264,7 +1293,7 @@ app.post("/pooja/api/open-day", poojaRequireAdmin, (req, res) => {
     });
 });
 
-app.post("/pooja/api/admin-slots", poojaRequireAdmin, (req, res) => {
+app.post("/pooja/api/admin-slots", requireAuth, poojaRequireAdmin, (req, res) => {
     const date = req.body.date;
 
     const selectAdminSlots = "select * from bookings where booking_date = ? and booking_type = ?";
@@ -1277,7 +1306,7 @@ app.post("/pooja/api/admin-slots", poojaRequireAdmin, (req, res) => {
     });
 });
 
-app.post("/pooja/api/open-slot", poojaRequireAdmin, (req, res) => {
+app.post("/pooja/api/open-slot", requireAuth, poojaRequireAdmin, (req, res) => {
     const id = req.body.id;
 
     const openSlotQuery = "delete from bookings where id = ?";
@@ -1290,7 +1319,7 @@ app.post("/pooja/api/open-slot", poojaRequireAdmin, (req, res) => {
     });
 });
 
-app.post("/pooja/api/remove-slot", poojaRequireAdmin, (req, res) => {
+app.post("/pooja/api/remove-slot", requireAuth, poojaRequireAdmin, (req, res) => {
     const date = req.body.date; 
     const time = req.body.time; 
 
@@ -1305,7 +1334,7 @@ app.post("/pooja/api/remove-slot", poojaRequireAdmin, (req, res) => {
     });
 });
 
-app.get("/pooja/api/verify-booking", poojaRequireAdmin, (req, res) => {
+app.get("/pooja/api/verify-booking", requireAuth, poojaRequireAdmin, (req, res) => {
     const changeStatusQuery = "update bookings set payment_status = ? where reference_code = ?";
     req.db.query(changeStatusQuery, ["verified", req.query.verify], (err, result) => {
         if(err){
@@ -1316,7 +1345,7 @@ app.get("/pooja/api/verify-booking", poojaRequireAdmin, (req, res) => {
     });
 });
 
-app.get("/pooja/api/verify-gift", poojaRequireAdmin, (req, res) => {
+app.get("/pooja/api/verify-gift", requireAuth, poojaRequireAdmin, (req, res) => {
     const getVoucherQuery = "select * from codes where reference_code = ?";
     req.db.query(getVoucherQuery, [req.query.verifyvoucher], (err, result) => {
         if(err){

@@ -210,12 +210,13 @@ function requireAuth(req, res, next) {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.user = decoded;
-    } catch {
-        console.log("unauth 2");
+    } catch (err) {
+        console.log("unauth 2: " + err.message);
         req.user = null;
     }
     next();
 }
+console.log("REMOVESLOT SECRET:", process.env.JWT_SECRET);
 /*///////////////////////////////////////////////////////////////////////////////////*/
 
 
@@ -1089,7 +1090,6 @@ app.post("/pooja/api/check-slots", (req, res) => {
 });
 
 app.post("/pooja/api/admin-access", (req, res) => {
-    console.log("VERIFY SECRET:", process.env.JWT_SECRET);
     const code = req.body.code;
 
     if(code == accessKey){
@@ -1323,6 +1323,7 @@ app.post("/pooja/api/open-slot", requireAuth, poojaRequireAdmin, (req, res) => {
 });
 
 app.post("/pooja/api/remove-slot", requireAuth, poojaRequireAdmin, (req, res) => {
+    console.log("REMOVESLOT SECRET:", process.env.JWT_SECRET);
     const date = req.body.date; 
     const time = req.body.time; 
 

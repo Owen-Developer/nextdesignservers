@@ -208,8 +208,9 @@ function requireAuth(req, res, next) {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.user = decoded;
-    } catch (err) {
-        console.log("unauth 2: " + err.message);
+    } catch (error) {
+        console.log("unauth 2")
+        console.log(error);
         req.user = null;
     }
     next();

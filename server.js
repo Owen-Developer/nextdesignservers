@@ -103,7 +103,6 @@ app.use(cors({
 }));
 
 function decideDb(req, res, next){
-    console.log("ORIGIN: " + req.headers.origin);
     const origin = req.headers.origin;
 
     if(origin == "https://poojasbeautysalon.com"){
@@ -205,7 +204,6 @@ function requireAuth(req, res, next) {
 
     const token = header.split(" ")[1];
 
-    console.log("SIGN SECRET reqauth:", process.env.JWT_SECRET);
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -216,7 +214,6 @@ function requireAuth(req, res, next) {
     }
     next();
 }
-console.log("REMOVESLOT SECRET:", process.env.JWT_SECRET);
 /*///////////////////////////////////////////////////////////////////////////////////*/
 
 
@@ -1323,7 +1320,6 @@ app.post("/pooja/api/open-slot", requireAuth, poojaRequireAdmin, (req, res) => {
 });
 
 app.post("/pooja/api/remove-slot", requireAuth, poojaRequireAdmin, (req, res) => {
-    console.log("REMOVESLOT SECRET:", process.env.JWT_SECRET);
     const date = req.body.date; 
     const time = req.body.time; 
 

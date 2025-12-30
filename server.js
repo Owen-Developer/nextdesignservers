@@ -205,6 +205,8 @@ function requireAuth(req, res, next) {
 
     const token = header.split(" ")[1];
 
+    console.log("SIGN SECRET reqauth:", process.env.JWT_SECRET);
+
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.user = decoded;
@@ -1087,6 +1089,7 @@ app.post("/pooja/api/check-slots", (req, res) => {
 });
 
 app.post("/pooja/api/admin-access", (req, res) => {
+    console.log("VERIFY SECRET:", process.env.JWT_SECRET);
     const code = req.body.code;
 
     if(code == accessKey){

@@ -294,7 +294,7 @@ function clubGetTime(){
     return timeString;
 }
 function clubRequireAdmin(req, res, next){
-    if(req.user.admin){
+    if(req.user?.admin){
         next();
     } else {
         return res.json({ message: 'unauth' });
@@ -401,7 +401,7 @@ app.post("/club/api/login", (req, res) => {
 });
 
 app.get("/club/api/get-user", requireAuth, (req, res) => {
-    req.db.query("select * from users where id = ?", [req.user.userId], (err, result) => {
+    req.db.query("select * from users where id = ?", [req.user?.userId], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -442,7 +442,7 @@ app.get("/club/api/get-chats", requireAuth, (req, res) => {
         }
 
         const chats = result;
-        req.db.query("select * from users", [req.user.userId], (err, result) => {
+        req.db.query("select * from users", [req.user?.userId], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -455,9 +455,9 @@ app.get("/club/api/get-chats", requireAuth, (req, res) => {
 app.post("/club/api/send-chat", requireAuth, (req, res) => {
     const message = req.body.message;
     let isAdmin = "no";
-    if(req.user.admin) isAdmin = "yes";
+    if(req.user?.admin) isAdmin = "yes";
 
-    req.db.query("insert into chats (user_id, name, message, full_date, full_time, is_admin) values (?, ?, ?, ?, ?, ?)", [req.user.userId, req.user.name, message, getCurrentDate(), clubGetTime(), isAdmin], (err, result) => {
+    req.db.query("insert into chats (user_id, name, message, full_date, full_time, is_admin) values (?, ?, ?, ?, ?, ?)", [req.user?.userId, req.user?.name, message, getCurrentDate(), clubGetTime(), isAdmin], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -473,7 +473,7 @@ app.get("/club/api/get-announcements", requireAuth, (req, res) => {
         }
 
         const ancs = result;
-        req.db.query("select * from users where id = ?", [req.user.userId], (err, result) => {
+        req.db.query("select * from users where id = ?", [req.user?.userId], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -488,7 +488,7 @@ app.get("/club/api/get-announcements", requireAuth, (req, res) => {
 app.post("/club/api/post-announcement", requireAuth, clubRequireAdmin, (req, res) => {
     const { heading, message } = req.body;
 
-    req.db.query("insert into announcements (user_id, full_date, head, para) values (?, ?, ?, ?)", [req.user.userId, getCurrentDate(), heading, message], (err, result) => {
+    req.db.query("insert into announcements (user_id, full_date, head, para) values (?, ?, ?, ?)", [req.user?.userId, getCurrentDate(), heading, message], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -659,7 +659,7 @@ function poojaGenerateNumber(){
     return crypto.randomBytes(5).toString('hex'); 
 }
 function poojaRequireAdmin(req, res, next){
-    if(!req.user.admin){
+    if(!req.user?.admin){
         return res.json({ message: 'Unauth' });
     }
     next();
@@ -702,9 +702,9 @@ app.post("/pooja/api/book-appointment", requireAuth, async (req, res) => {
     const cancelLink = url + "/bookings.html?cancel=" + cancelCode;
 
     let paymentStr = "Not Paid Yet (instore)";
-    if(req.body.inStore == "paid" && req.user.admin){
+    if(req.body.inStore == "paid" && req.user?.admin){
         paymentStr = "Paid in Store";
-    } else if(req.body.inStore == "unpaid" && req.user.admin){
+    } else if(req.body.inStore == "unpaid" && req.user?.admin){
         paymentStr = "Not Paid Yet";
     }
 
@@ -1105,7 +1105,7 @@ app.post("/pooja/api/admin-access", (req, res) => {
 });
 
 app.get("/pooja/api/check-admin", requireAuth, (req, res) => {
-    if(req.user.admin){
+    if(req.user?.admin){
         return res.json({ message: 'Success' });
     } else {
         return res.json({ message: 'Failure' });

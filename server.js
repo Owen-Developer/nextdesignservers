@@ -670,7 +670,7 @@ async function sendSms(message){
         await client.messages.create({
             body: message,
             from: process.env.TWILIO_PHONE,
-            to: "+447394142705"
+            to: "+353052785232"
         });
     } catch (err) {
         console.error(err);

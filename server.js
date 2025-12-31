@@ -2590,6 +2590,13 @@ app.post("/job/api/delete-price", (req, res) => {
     });
 });
 
+app.post("/job/api/contact", async (req, res) => {
+    const { name, email, message } = req.body;
+
+    await jobSendEmail("jackbaileywoods@gmail.com", `Hi, you got a message from the Job App.<br><br>Name: ${name}<br><br>Email: ${email}<br><br>Message: ${message}`);
+    return res.json({ message: 'success' });
+});
+
 app.post("/job/api/send-code", (req, res) => {
     req.db.query("select * from users where email = ?", [req.body.email], (err, result) => {
         if(err){

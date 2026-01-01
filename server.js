@@ -86,7 +86,7 @@ const allowedOrigins = [
     'https://nextdesignwebsite.com',
     'https://cadgolfperformance.com',
     'https://poojasbeautysalon.com',
-    "https://jobapp-zfuf.onrender.com",
+    "https://pwa-test-42o2.onrender.com",
     "https://club729.exam-scope.com"
 ];
 app.use(cors({
@@ -111,7 +111,7 @@ function decideDb(req, res, next){
         req.db = cadgolfDb;
     } else if(origin == "https://nextdesignwebsite.com"){
         req.db = nextdesignDb;
-    } else if(origin == "https://jobapp-zfuf.onrender.com"){
+    } else if(origin == "https://pwa-test-42o2.onrender.com"){
         req.db = jobDb;
     } else if(origin == "https://club729.exam-scope.com"){
         req.db = clubDb;

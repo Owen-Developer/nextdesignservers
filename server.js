@@ -2023,7 +2023,7 @@ app.post("/job/api/setup", requireAuth, (req, res) => {
             }
 
             const payload = {
-                userId: result[0].id
+                userId: result.insertId
             };
             const token = jwt.sign(
                 payload,
@@ -2031,7 +2031,6 @@ app.post("/job/api/setup", requireAuth, (req, res) => {
                 { expiresIn: "60m" }
             );
              
-            req.user.userId = result.insertId;
             return res.json({ message: 'success', token: token });
         });
     });
@@ -2067,7 +2066,6 @@ app.post("/job/api/login", requireAuth, (req, res) => {
                 { expiresIn: "60m" }
             );
 
-            req.user.userId = result[0].id;
             if(result[0].perms == "admin"){
                 return res.json({ message: 'admin', token: token });
             } else {
@@ -2092,7 +2090,7 @@ app.get("/job/api/get-jobs", (req, res) => {
 });
 
 app.get("/job/api/get-user", requireAuth, (req, res) => {
-    if(!req.user.userId){
+    if(!req.user?.userId){
         req.db.query("select * from users", (err, result) => {
             if(err){
                 console.error(err);
@@ -2657,8 +2655,15 @@ app.post("/job/api/verify", requireAuth, (req, res) => {
                     console.error(err);
                 }
 
-                req.user.userId = userId;
-                return res.json({ message: 'success' });
+                const payload = {
+                    userId: userId
+                };
+                const token = jwt.sign(
+                    payload,
+                    process.env.JWT_SECRET,
+                    { expiresIn: "60m" }
+                );
+                return res.json({ message: 'success', token: token });
             });
         });
     });

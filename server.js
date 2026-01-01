@@ -157,10 +157,11 @@ FOR JWT SESSIONS
                 { expiresIn: "60m" }
             );
             return res.json({ message: 'success', token: token });
-3. replace all rq.session -> rq.user
-4. add function middleware everywhere req.user is used, including other middleware
-5. add const jwt = require("jsonwebtoken"); :)
-6. add to JS: headers: { Authorization: `Bearer ${localStorage.getItem("token")}`, }
+3. set localStorage token
+4. replace all rq.session -> rq.user
+5. add function middleware everywhere req.user is used, including other middleware
+6. add const jwt = require("jsonwebtoken"); :)
+7. add to JS: headers: { Authorization: `Bearer ${localStorage.getItem("token")}`, }
 */
 
 /*
@@ -2005,7 +2006,7 @@ function jobCreateNoti(reqDb, userId, title, type, reciever){
 }
 
 
-app.post("/job/api/setup", (req, res) => {
+app.post("/job/api/setup", requireAuth, (req, res) => {
     const { name, email, password } = req.body;
 
     bcrypt.hash(password, 10, (err, hashedPassword) => {
@@ -2020,14 +2021,23 @@ app.post("/job/api/setup", (req, res) => {
                 console.error('Error inserting data:', err);
                 return res.json({ message: 'failure' });
             }
+
+            const payload = {
+                userId: result[0].id
+            };
+            const token = jwt.sign(
+                payload,
+                process.env.JWT_SECRET,
+                { expiresIn: "60m" }
+            );
              
-            req.session.userId = result.insertId;
-            return res.json({ message: 'success' });
+            req.user.userId = result.insertId;
+            return res.json({ message: 'success', token: token });
         });
     });
 });
 
-app.post("/job/api/login", (req, res) => {
+app.post("/job/api/login", requireAuth, (req, res) => {
     const { email, password } = req.body;
 
     req.db.query("select * from users where email = ?", [email], (err, result) => {
@@ -2048,18 +2058,27 @@ app.post("/job/api/login", (req, res) => {
                 return res.json({ message: 'invalid password' });
             }
 
-            req.session.userId = result[0].id;
+            const payload = {
+                userId: result[0].id
+            };
+            const token = jwt.sign(
+                payload,
+                process.env.JWT_SECRET,
+                { expiresIn: "60m" }
+            );
+
+            req.user.userId = result[0].id;
             if(result[0].perms == "admin"){
-                return res.json({ message: 'admin' });
+                return res.json({ message: 'admin', token: token });
             } else {
-                return res.json({ message: 'success' });
+                return res.json({ message: 'success', token: token });
             }
         });
     });
 });
 
 app.get("/job/api/get-jobs", (req, res) => {
-    req.db.query("select * from jobs where user_id = ?", [req.session.userId], (err, result) => {
+    req.db.query("select * from jobs where user_id = ?", [req.user.userId], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -2072,8 +2091,8 @@ app.get("/job/api/get-jobs", (req, res) => {
     });
 });
 
-app.get("/job/api/get-user", (req, res) => {
-    if(!req.session.userId){
+app.get("/job/api/get-user", requireAuth, (req, res) => {
+    if(!req.user.userId){
         req.db.query("select * from users", (err, result) => {
             if(err){
                 console.error(err);
@@ -2086,14 +2105,14 @@ app.get("/job/api/get-user", (req, res) => {
             }
         });
     } else {
-        req.db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
+        req.db.query("select * from users where id = ?", [req.user.userId], (err, result) => {
             if(err){
                 console.error(err);
             }
     
             let userData = result[0];
             userData.password_hash = "";
-            req.db.query("select * from notifications where user_id = ? or reciever = ? order by id desc", [req.session.userId, "admin"], (err, result) => {
+            req.db.query("select * from notifications where user_id = ? or reciever = ? order by id desc", [req.user.userId, "admin"], (err, result) => {
                 if(err){
                     console.error(err);
                 }
@@ -2115,9 +2134,9 @@ app.get("/job/api/get-user", (req, res) => {
 
 });
 
-app.post("/job/api/mark-read", (req, res) => {
+app.post("/job/api/mark-read", requireAuth, (req, res) => {
     if(req.body.perms == "admin"){
-        req.db.query("update notifications set status = ? where reciever = ? or user_id = ?", ["read", "admin", req.session.userId], (err, result) => {
+        req.db.query("update notifications set status = ? where reciever = ? or user_id = ?", ["read", "admin", req.user.userId], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -2125,7 +2144,7 @@ app.post("/job/api/mark-read", (req, res) => {
             return res.json({ message: 'success' });
         });
     } else {
-        req.db.query("update notifications set status = ? where user_id = ?", ["read", req.session.userId], (err, result) => {
+        req.db.query("update notifications set status = ? where user_id = ?", ["read", req.user.userId], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -2263,8 +2282,8 @@ app.post("/job/api/send-summary", (req, res) => {
     });
 });
 
-app.get("/job/api/get-profile", (req, res) => {
-    req.db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
+app.get("/job/api/get-profile", requireAuth, (req, res) => {
+    req.db.query("select * from users where id = ?", [req.user.userId], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -2279,15 +2298,15 @@ app.get("/job/api/get-profile", (req, res) => {
     });
 });
 
-app.post("/job/api/save-profile", (req, res) => {
+app.post("/job/api/save-profile", requireAuth, (req, res) => {
     const { name, email, phone } = req.body;
 
-    req.db.query("update users set name = ?, email = ?, phone = ? where id = ?", [name, email, phone, req.session.userId], (err, result) => {
+    req.db.query("update users set name = ?, email = ?, phone = ? where id = ?", [name, email, phone, req.user.userId], (err, result) => {
         if(err){
             console.error(err);
         }
 
-        req.db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
+        req.db.query("select * from users where id = ?", [req.user.userId], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -2298,7 +2317,7 @@ app.post("/job/api/save-profile", (req, res) => {
 
             let userData = result[0];
             userData.password_hash = "";
-            req.db.query("select * from notifications where user_id = ?", [req.session.userId], (err, result) => {
+            req.db.query("select * from notifications where user_id = ?", [req.user.userId], (err, result) => {
                 if(err){
                     console.error(err);
                 }
@@ -2315,10 +2334,10 @@ app.post("/job/api/save-profile", (req, res) => {
     });
 });
 
-app.post("/job/api/change-password", (req, res) => {
+app.post("/job/api/change-password", requireAuth, (req, res) => {
     const { currentPassword, newPassword } = req.body;
 
-    req.db.query("select * from users where id = ?", [req.session.userId], (err, result) => {
+    req.db.query("select * from users where id = ?", [req.user.userId], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -2337,12 +2356,12 @@ app.post("/job/api/change-password", (req, res) => {
                     console.error(err);
                 }
 
-                req.db.query("update users set password_hash = ? where id = ?", [hashedPassword, req.session.userId], async (err, result) => {
+                req.db.query("update users set password_hash = ? where id = ?", [hashedPassword, req.user.userId], async (err, result) => {
                     if(err){
                         console.error(err);
                     }
 
-                    await jobCreateNoti(req.db, req.session.userId, "You password has recently been changed.", "password", "worker");
+                    await jobCreateNoti(req.db, req.user.userId, "You password has recently been changed.", "password", "worker");
                     return res.json({ message: 'success' });
                 });
             });    
@@ -2511,13 +2530,9 @@ app.post("/job/api/update-labour", (req, res) => {
 });
 
 app.get("/job/api/logout", (req, res) => {
-    req.session.destroy(err => {
-        if (err) {
-        console.error("Logout error:", err);
-        return res.status(500).json({ message: 'failed' });
-        }
-        return res.json({ message: 'success' });
-    });
+    req.user = null;
+
+    return res.json({ message: 'success' });
 });
 
 app.get("/job/api/admin-notis", (req, res) => {
@@ -2619,7 +2634,7 @@ app.post("/job/api/send-code", (req, res) => {
     });
 });
 
-app.post("/job/api/verify", (req, res) => {
+app.post("/job/api/verify", requireAuth, (req, res) => {
     const { code, password } = req.body;
 
     req.db.query("select * from users where verification_code = ?", [code], (err, result) => {
@@ -2642,7 +2657,7 @@ app.post("/job/api/verify", (req, res) => {
                     console.error(err);
                 }
 
-                req.session.userId = userId;
+                req.user.userId = userId;
                 return res.json({ message: 'success' });
             });
         });

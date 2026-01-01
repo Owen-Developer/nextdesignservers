@@ -104,7 +104,6 @@ app.use(cors({
 
 function decideDb(req, res, next){
     const origin = req.headers.origin;
-    console.log(origin);
 
     if(origin == "https://poojasbeautysalon.com"){
         req.db = poojaDb;

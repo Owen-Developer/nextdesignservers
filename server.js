@@ -211,7 +211,6 @@ function requireAuth(req, res, next) {
         req.user = decoded;
     } catch (error) {
         console.log("unauth 2")
-        console.log(error);
         req.user = null;
     }
     next();
@@ -2075,7 +2074,7 @@ app.post("/job/api/login", requireAuth, (req, res) => {
     });
 });
 
-app.get("/job/api/get-jobs", (req, res) => {
+app.get("/job/api/get-jobs", requireAuth, (req, res) => {
     req.db.query("select * from jobs where user_id = ?", [req.user.userId], (err, result) => {
         if(err){
             console.error(err);
@@ -2528,9 +2527,16 @@ app.post("/job/api/update-labour", (req, res) => {
 });
 
 app.get("/job/api/logout", (req, res) => {
-    req.user = null;
+    const payload = {
+        userId: null
+    };
+    const token = jwt.sign(
+        payload,
+        process.env.JWT_SECRET,
+        { expiresIn: "60m" }
+    );
 
-    return res.json({ message: 'success' });
+    return res.json({ message: 'success', token: token });
 });
 
 app.get("/job/api/admin-notis", (req, res) => {

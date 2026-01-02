@@ -2527,16 +2527,7 @@ app.post("/job/api/update-labour", (req, res) => {
 });
 
 app.get("/job/api/logout", (req, res) => {
-    const payload = {
-        userId: null
-    };
-    const token = jwt.sign(
-        payload,
-        process.env.JWT_SECRET,
-        { expiresIn: "60m" }
-    );
-
-    return res.json({ message: 'success', token: token });
+    return res.json({ message: 'success' });
 });
 
 app.get("/job/api/admin-notis", (req, res) => {

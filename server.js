@@ -301,6 +301,7 @@ function clubGetTime(){
     } else {
         timeString = timeString.slice(1) + "am";
     }
+    return timeString;
 }
 function clubRequireAdmin(req, res, next){
     if(req.user?.admin){
@@ -609,12 +610,12 @@ app.post("/club/api/accept-member", requireAuth, clubRequireAdmin, (req, res) =>
 });
 
 app.post("/club/api/upload-pfp", requireAuth, upload.single("pfp"), (req, res) => {
-    req.db.query("update users set pfp = ? where id = ?", [`/uploads/pfp/${req.file.filename}`, req.user.userId], (err, result) => {
+    req.db.query("update users set pfp = ? where id = ?", [`https://servers.nextdesignwebsite.com/uploads/pfp/${req.file.filename}`, req.user.userId], (err, result) => {
         if(err){
             console.error(err);
         }
 
-        res.json({ success: true, url: `/uploads/pfp/${req.file.filename}` });
+        res.json({ success: true, url: `https://servers.nextdesignwebsite.com/uploads/pfp/${req.file.filename}` });
     });
 });
 

@@ -450,7 +450,7 @@ app.post("/club/api/get-events", (req, res) => {
     });
 });
 
-app.get("/api/get-all", (req, res) => {
+app.get("/club/api/get-all", (req, res) => {
     req.db.query("select * from users", (err, result) => {
         let users = result;
         users.forEach(user => user.password_hash == "");

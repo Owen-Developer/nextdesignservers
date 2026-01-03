@@ -18,6 +18,16 @@ const client = twilio(
     process.env.TWILIO_AUTH_TOKEN
 );
 const jwt = require("jsonwebtoken");
+const multer = require("multer");
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/pfp"),
+  filename: (req, file, cb) => {
+    const ext = file.originalname.split(".").pop();
+    cb(null, `user_${req.user.userId}.${ext}`); // Save uniquely by user ID
+  },
+});
+const upload = multer({ storage });
 
 const accessKey = process.env.pooja_ACCESS_KEY;
 const url = process.env.pooja_FRONTEND_URL;
@@ -82,7 +92,6 @@ const store = new MySQLStore({
 });
 
 const allowedOrigins = [
-    'http://localhost:3000',
     'https://nextdesignwebsite.com',
     'https://cadgolfperformance.com',
     'https://poojasbeautysalon.com',
@@ -285,14 +294,13 @@ function clubGetTime(){
         minute: "2-digit",
         hour12: false
     });
-    if(Number(timeString.slice(0, 2)) > 12){
+    if(Number(timeString.slice(0, 2)) >= 12){
         timeString = String(Number(Number(timeString.slice(0, 2)) - 12)) + timeString.slice(2) + "pm";
-    } else if(Number(timeString.slice(0, 2)) == 12){
-        timeString = timeString.slice(1) + "pm";
+    } else if(Number(timeString.slice(0, 2)) >= 10){
+        timeString = timeString.slice(0) + "am";
     } else {
         timeString = timeString.slice(1) + "am";
     }
-    return timeString;
 }
 function clubRequireAdmin(req, res, next){
     if(req.user?.admin){
@@ -304,7 +312,13 @@ function clubRequireAdmin(req, res, next){
 
 
 app.post("/club/api/apply", (req, res) => {
-    const { name, email, phone, password, business } = req.body;
+    const { name, email, phone, password, business, businesstyped } = req.body;
+
+    let businessStr = business;
+    if(businessStr == "other") businessStr = businesstyped;
+    if(businesstyped == ""){
+        return res.json({ message: 'noother' });
+    }
 
     bcrypt.hash(password, 10, (err, hashedPassword) => {
         if(err){
@@ -313,7 +327,7 @@ app.post("/club/api/apply", (req, res) => {
 
         const token = Math.floor(100000 + Math.random() * 900000);
 
-        req.db.query("insert into users (name, email, phone, password_hash, business, token) values (?, ?, ?, ?, ?, ?)", [name, email, phone, hashedPassword, business, token], (err, result) => {
+        req.db.query("insert into users (name, email, phone, password_hash, business, token) values (?, ?, ?, ?, ?, ?)", [name, email, phone, hashedPassword, businessStr, token], (err, result) => {
             if(err){
                 console.error(err);
             }
@@ -436,29 +450,30 @@ app.post("/club/api/get-events", (req, res) => {
     });
 });
 
+app.get("/api/get-all", (req, res) => {
+    req.db.query("select * from users", (err, result) => {
+        let users = result;
+        users.forEach(user => user.password_hash == "");
+        return res.json({ users: users });
+    });
+});
+
 app.get("/club/api/get-chats", requireAuth, (req, res) => {
     req.db.query("select * from chats order by id asc", (err, result) => {
         if(err){
             console.error(err);
         }
 
-        const chats = result;
-        req.db.query("select * from users", [req.user?.userId], (err, result) => {
-            if(err){
-                console.error(err);
-            }
-
-            return res.json({ message: 'success', chats: chats, name: result[0].name });
-        });
+        let chats = result;
+        return res.json({ message: 'success', chats: chats });
     });
 });
 
 app.post("/club/api/send-chat", requireAuth, (req, res) => {
     const message = req.body.message;
-    let isAdmin = "no";
-    if(req.user?.admin) isAdmin = "yes";
+    const area = req.body.area;
 
-    req.db.query("insert into chats (user_id, name, message, full_date, full_time, is_admin) values (?, ?, ?, ?, ?, ?)", [req.user?.userId, req.user?.name, message, getCurrentDate(), clubGetTime(), isAdmin], (err, result) => {
+    req.db.query("insert into chats (user_id, message, full_date, full_time, area) values (?, ?, ?, ?, ?)", [req.user?.userId, message, getCurrentDate(), clubGetTime(), area], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -499,14 +514,14 @@ app.post("/club/api/post-announcement", requireAuth, clubRequireAdmin, (req, res
 });
 
 app.post("/club/api/create-event", requireAuth, clubRequireAdmin, (req, res) => {
-    let { title, description, date } = req.body;
+    let { title, description, date, time, where, link } = req.body;
 
     if(date.length != 10 || isNaN(date.slice(0, 2)) || isNaN(date.slice(3, 5)) || isNaN(date.slice(6)) || date[2] != "/" || date[5] != "/"){
         return res.json({ message: 'invaliddate' });
     }
 
     date = `${date.slice(-4)}-${date.slice(3, 5)}-${date.slice(0, 2)}`;
-    req.db.query("insert into all_events (title, event_date, event_description) values (?, ?, ?)", [title, date, description], (err, result) => {
+    req.db.query("insert into all_events (title, event_date, event_description, event_time, event_where, event_link) values (?, ?, ?, ?, ?, ?)", [title, date, description, time, where, link], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -516,14 +531,14 @@ app.post("/club/api/create-event", requireAuth, clubRequireAdmin, (req, res) => 
 });
 
 app.post("/club/api/edit-event", requireAuth, clubRequireAdmin, (req, res) => {
-    let { title, description, date, id } = req.body;
+    let { title, description, date, time, where, link, id } = req.body;
 
     if(date.length != 10 || isNaN(date.slice(0, 2)) || isNaN(date.slice(3, 5)) || isNaN(date.slice(6)) || date[2] != "/" || date[5] != "/"){
         return res.json({ message: 'invaliddate' });
     }
 
     date = `${date.slice(-4)}-${date.slice(3, 5)}-${date.slice(0, 2)}`;
-    req.db.query("update all_events set title = ?, event_date = ?, event_description = ? where id = ?", [title, date, description, id], (err, result) => {
+    req.db.query("update all_events set title = ?, event_date = ?, event_description = ?, event_time = ?, event_where = ?, event_link = ? where id = ?", [title, date, description, time, where, link, id], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -592,6 +607,40 @@ app.post("/club/api/accept-member", requireAuth, clubRequireAdmin, (req, res) =>
         return res.json({ message: 'success' });
     });
 });
+
+app.post("/club/api/upload-pfp", requireAuth, upload.single("pfp"), (req, res) => {
+    req.db.query("update users set pfp = ? where id = ?", [`/uploads/pfp/${req.file.filename}`, req.user.userId], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        res.json({ success: true, url: `/uploads/pfp/${req.file.filename}` });
+    });
+});
+
+app.get("/club/api/delete-pfp", requireAuth, (req, res) => {
+    req.db.query("update users set pfp = ? where id = ?", ["/images/pfp_base.png", req.user.userId], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        return res.json({ message: 'success' });
+    });
+});
+
+app.post("/club/api/edit-profile", requireAuth, (req, res) => {
+    const { name, email, phone, business } = req.body;
+
+    req.db.query("update users set name = ?, email = ?, phone = ?, business = ? where id = ?", [name, email, phone, business, req.user.userId], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        return res.json({ message: 'success' });
+    });
+});
+
+app.use("/uploads", express.static("uploads"));
 /*///////////////////////////////////////////////////////////////////////////////*/
 
 
@@ -1987,12 +2036,12 @@ function jobGetTime(){
         minute: "2-digit",
         hour12: false
     });
-    if(Number(timeString.slice(0, 2)) > 12){
+    if(Number(timeString.slice(0, 2)) >= 12){
         timeString = String(Number(Number(timeString.slice(0, 2)) - 12)) + timeString.slice(2) + "pm";
-    } else if(Number(timeString.slice(0, 2)) == 12){
-        timeString = timeString + "pm";
+    } else if(Number(timeString.slice(0, 2)) >= 10){
+        timeString = timeString.slice(0) + "am";
     } else {
-        timeString = timeString + "am";
+        timeString = timeString.slice(1) + "am";
     }
     return `${monthTxt} ${monthNum}, ${yearNum} at ${timeString}`;
 }

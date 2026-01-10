@@ -580,7 +580,7 @@ app.post("/invoiceapp/api/create-connection", requireAuth, async (req, res) => {
     );
     const tenantId = tenantRes.data[0].tenantId;
 
-    req.db.query("insert into connections (user_id, tenant_id, access_token, refresh_token, expires_at) values (?, ?, ?, ?, ?)", [req.user.id, tenantId, access_token, refresh_token, expiresAt], (err, result) => {
+    req.db.query("insert into connections (user_id, tenant_id, access_token, refresh_token) values (?, ?, ?, ?)", [req.user.id, tenantId, access_token, refresh_token], (err, result) => {
         if(err){
             console.error(err);
         }

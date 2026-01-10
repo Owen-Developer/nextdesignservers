@@ -135,6 +135,8 @@ function decideDb(req, res, next){
         req.db = jobDb;
     } else if(origin == "https://club729.exam-scope.com"){
         req.db = clubDb;
+    } else if(origin == "https://invoice-recovery-software.onrender.com"){
+        req.db = invoiceDb;
     }
 
     next();

@@ -374,7 +374,7 @@ async function invoiceSendSms(message, number){
     try {
         await client.messages.create({
             body: message,
-            from: process.env.TWILIO_PHONE,
+            messagingServiceSid: "MG24612d60e681a130125239ee11f11ba8",
             to: number
         });
     } catch (err) {

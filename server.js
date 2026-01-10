@@ -826,6 +826,7 @@ app.post("/invoiceapp/api/reply", (req, res) => {
                         input: prompt
                     });
                     const aiResponse = response.output_text;
+                    invoiceSendSms(aiResponse, from);
     
                     let conId = result[0].connection_id;
                     let invoiceId = result[0].id;

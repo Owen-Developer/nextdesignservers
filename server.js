@@ -266,9 +266,9 @@ function invoiceRequireUser(req, res, next){
     }
     next();
 }
-function invoiceDbQuery(sql, params = []) {
+function invoiceDbQuery(reqDb, sql, params = []) {
     return new Promise((resolve, reject) => {
-        req.db.query(sql, params, (err, result) => {
+        reqDb.query(sql, params, (err, result) => {
             if (err) return reject(err);
             resolve(result);
         });
@@ -361,8 +361,8 @@ function invoiceGetTime(){
     }
     return `${monthTxt} ${monthNum}, ${yearNum} at ${timeString}`;
 }
-function invoiceCreateNoti(userId, title, type, invoiceId){
-    req.db.query("insert into notifications (user_id, invoice_id, title, full_date, type, status) values (?, ?, ?, ?, ?, ?)", [userId, invoiceId, title, invoiceGetTime(), type, "unread"], (err, result) => {
+function invoiceCreateNoti(reqDb, userId, title, type, invoiceId){
+    reqDb.query("insert into notifications (user_id, invoice_id, title, full_date, type, status) values (?, ?, ?, ?, ?, ?)", [userId, invoiceId, title, invoiceGetTime(), type, "unread"], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -470,12 +470,12 @@ app.post("/invoiceapp/api/login", requireAuth, (req, res) => {
 });
 
 app.get("/invoiceapp/api/get-user", requireAuth, invoiceRequireUser, async (req, res) => {
-    let users = await invoiceDbQuery("select * from users where id = ?", [req.user.id]);
+    let users = await invoiceDbQuery(req.db, "select * from users where id = ?", [req.user.id]);
     let userData = users[0];
     userData.password_hash = "";
 
     let invoices;
-    let connections = await invoiceDbQuery("select * from connections where user_id = ?", [req.user.id]);
+    let connections = await invoiceDbQuery(req.db, "select * from connections where user_id = ?", [req.user.id]);
     if(connections.length == 0){
         return res.json({ message: 'success', connection: false });
     }
@@ -502,7 +502,7 @@ app.get("/invoiceapp/api/get-user", requireAuth, invoiceRequireUser, async (req,
     } catch(err){
         if(err.response && err.response.status == 401){
             let newData = await invoiceRefreshToken(connections[0].refresh_token);
-            await invoiceDbQuery("update connections set access_token = ?, refresh_token = ? where id = ?", [newData.newAccessToken, newData.newinvoiceRefreshToken, connections[0].id]);
+            await invoiceDbQuery(req.db, "update connections set access_token = ?, refresh_token = ? where id = ?", [newData.newAccessToken, newData.newinvoiceRefreshToken, connections[0].id]);
 
             invoices = await invoiceGetInvoices(newData.newAccessToken, tenantId);
             req.db.query("select * from notifications where user_id = ? order by id desc", [req.user.id], (err, result) => {
@@ -595,7 +595,7 @@ app.get("/invoiceapp/api/checkup", async (req, res) => {
 
     let contacts;
     try {
-        let connections = await invoiceDbQuery("select * from connections");
+        let connections = await invoiceDbQuery(req.db, "select * from connections");
         for(const con of connections){
             let xeroInvoices;
             let tenantId = con.tenant_id;
@@ -604,7 +604,7 @@ app.get("/invoiceapp/api/checkup", async (req, res) => {
             } catch(err){
                 if(err.response && err.response.status == 401){
                     let newData = await invoiceRefreshToken(con.refresh_token);
-                    await invoiceDbQuery("update connections set access_token = ?, refresh_token = ? where id = ?", [newData.newAccessToken, newData.newinvoiceRefreshToken, con.id]);
+                    await invoiceDbQuery(req.db, "update connections set access_token = ?, refresh_token = ? where id = ?", [newData.newAccessToken, newData.newinvoiceRefreshToken, con.id]);
                     xeroInvoices = await invoiceGetInvoices(newData.newAccessToken, tenantId);
                 } else {
                     console.error(err);
@@ -612,7 +612,7 @@ app.get("/invoiceapp/api/checkup", async (req, res) => {
                 }
             }
     
-            const dbInvoices = await invoiceDbQuery("select * from invoices where connection_id = ?", [con.id]);
+            const dbInvoices = await invoiceDbQuery(req.db, "select * from invoices where connection_id = ?", [con.id]);
     
             let currentDate = invoiceGetCurrentDate();
             contacts = await invoiceGetContact(con.access_token, con.tenant_id);
@@ -632,7 +632,7 @@ app.get("/invoiceapp/api/checkup", async (req, res) => {
                         if(xero.AmountDue == 0 && inv.amount_due != 0){
                             if(invoiceDaysDifference(xero.DueDateString.slice(0, 10), currentDate) <= -7){
                                 recoveredInvoices.push(xero);
-                                invoiceCreateNoti(con.user_id, `Invoice #${xero.InvoiceNumber.split("-")[1] || 9402} has been recovered!`, "paid", inv.id);
+                                invoiceCreateNoti(req.db, con.user_id, `Invoice #${xero.InvoiceNumber.split("-")[1] || 9402} has been recovered!`, "paid", inv.id);
                             }
                         }
 
@@ -657,14 +657,14 @@ app.get("/invoiceapp/api/checkup", async (req, res) => {
                 contacts.forEach(contact => {
                     if(contact.ContactID == xero.Contact.ContactID) phoneNumber = invoiceExtractPhone(contact);
                 });
-                await invoiceDbQuery("insert into invoices (xero_id, connection_id, due_date, amount_due, amount_paid, phone_number) values (?, ?, ?, ?, ?, ?)", [xero.InvoiceID, con.id, xero.DueDateString.slice(0, 10), xero.AmountDue, xero.AmountPaid, phoneNumber]);
+                await invoiceDbQuery(req.db, "insert into invoices (xero_id, connection_id, due_date, amount_due, amount_paid, phone_number) values (?, ?, ?, ?, ?, ?)", [xero.InvoiceID, con.id, xero.DueDateString.slice(0, 10), xero.AmountDue, xero.AmountPaid, phoneNumber]);
             }
             for(const xero of editedInvoices){
                 let phoneNumber;
                 contacts.forEach(contact => {
                     if(contact.ContactID == xero.Contact.ContactID) phoneNumber = invoiceExtractPhone(contact);
                 });
-                await invoiceDbQuery("update invoices set due_date = ?, amount_due = ?, amount_paid = ?, phone_number = ? where xero_id = ?", [xero.DueDateString.slice(0, 10), xero.AmountDue, xero.AmountPaid, phoneNumber, xero.InvoiceID]);
+                await invoiceDbQuery(req.db, "update invoices set due_date = ?, amount_due = ?, amount_paid = ?, phone_number = ? where xero_id = ?", [xero.DueDateString.slice(0, 10), xero.AmountDue, xero.AmountPaid, phoneNumber, xero.InvoiceID]);
             }
             for(const xero of xeroInvoices){
                 let xeroDueDate = xero.DueDateString.slice(0, 10);
@@ -678,10 +678,10 @@ app.get("/invoiceapp/api/checkup", async (req, res) => {
                                         console.log("SMS 1: " + phoneNumber + " - " + xero.Contact.Name);
 
                                         if(phoneNumber){
-                                            await invoiceDbQuery("update invoices set sms_stage = ? where id = ?", [1, inv.id]);
-                                            await invoiceDbQuery("insert into messages (xero_invoice_id, heading, para, type, date, customer_phone) values (?, ?, ?, ?, ?, ?)", [inv.xero_id, "Initial Warning", "Your invoice for Dyson's is 7 days overdue.", "warning", invoiceGetCurrentDate(), phoneNumber])
+                                            await invoiceDbQuery(req.db, "update invoices set sms_stage = ? where id = ?", [1, inv.id]);
+                                            await invoiceDbQuery(req.db, "insert into messages (xero_invoice_id, heading, para, type, date, customer_phone) values (?, ?, ?, ?, ?, ?)", [inv.xero_id, "Initial Warning", "Your invoice for Dyson's is 7 days overdue.", "warning", invoiceGetCurrentDate(), phoneNumber])
                                             await invoiceSendSms("Your invoice for Dyson's is 7 days overdue.", phoneNumber);
-                                            invoiceCreateNoti(con.user_id, `A message was sent to ${xero.Contact.Name}. (7 days overdue)`, "sms", inv.id);
+                                            invoiceCreateNoti(req.db, con.user_id, `A message was sent to ${xero.Contact.Name}. (7 days overdue)`, "sms", inv.id);
                                         } else {
                                             req.db.query("select * from notifications where title = ?", [`No phone number found on Xero for ${xero.Contact.Name}. (7 days overdue)`], (err, result) => {
                                                 if(err){
@@ -689,7 +689,7 @@ app.get("/invoiceapp/api/checkup", async (req, res) => {
                                                 }
 
                                                 if(result.length == 0){
-                                                    invoiceCreateNoti(con.user_id, `No phone number found on Xero for ${xero.Contact.Name}. (7 days overdue)`, "error", inv.id);
+                                                    invoiceCreateNoti(req.db, con.user_id, `No phone number found on Xero for ${xero.Contact.Name}. (7 days overdue)`, "error", inv.id);
                                                 }
                                             });
                                         }
@@ -703,7 +703,7 @@ app.get("/invoiceapp/api/checkup", async (req, res) => {
                 }
             }
             for(const xero of recoveredInvoices){
-                await invoiceDbQuery("update invoices set recovered = ? where xero_id = ?", ["yes", xero.InvoiceID]);
+                await invoiceDbQuery(req.db, "update invoices set recovered = ? where xero_id = ?", ["yes", xero.InvoiceID]);
             }
         }
         return res.json({ message: 'success', contacts: contacts });
@@ -793,8 +793,8 @@ app.post("/invoiceapp/api/reply", (req, res) => {
                                 console.error(err);
                             }
         
-                            invoiceCreateNoti(result[0].user_id, `We received an SMS reply from ${from}`, "response", invoiceId);
-                            invoiceCreateNoti(result[0].user_id, `We sent an AI response to ${from}`, "response", invoiceId);
+                            invoiceCreateNoti(req.db, result[0].user_id, `We received an SMS reply from ${from}`, "response", invoiceId);
+                            invoiceCreateNoti(req.db, result[0].user_id, `We sent an AI response to ${from}`, "response", invoiceId);
                             return res.json({ message: 'success' });
                         });
                     });

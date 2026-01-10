@@ -729,7 +729,9 @@ app.post("/invoiceapp/api/reply", (req, res) => {
     const from = req.body.From;
     const body = req.body.Body;
 
-    req.db.query("select * from messages where customer_phone = ?", [from], (err, result) => {
+    const dbAuto = invoiceDb;
+
+    dbAuto.query("select * from messages where customer_phone = ?", [from], (err, result) => {
         if(err){
             console.error(err);
         }
@@ -740,12 +742,12 @@ app.post("/invoiceapp/api/reply", (req, res) => {
         }
 
         let xeroId = result[0].xero_invoice_id;
-        req.db.query("insert into messages (xero_invoice_id, heading, para, type, date, customer_phone) values (?, ?, ?, ?, ?, ?)", [xeroId, "Customer Response", body, "response", invoiceGetCurrentDate(), from], (err, result) => {
+        dbAuto.query("insert into messages (xero_invoice_id, heading, para, type, date, customer_phone) values (?, ?, ?, ?, ?, ?)", [xeroId, "Customer Response", body, "response", invoiceGetCurrentDate(), from], (err, result) => {
             if(err){
                 console.error(err);
             }
 
-            req.db.query("select * from invoices where xero_id = ?", [xeroId], (err, result) => {
+            dbAuto.query("select * from invoices where xero_id = ?", [xeroId], (err, result) => {
                 if(err){
                     console.error(err);
                 }
@@ -785,18 +787,18 @@ app.post("/invoiceapp/api/reply", (req, res) => {
     
                     let conId = result[0].connection_id;
                     let invoiceId = result[0].id;
-                    req.db.query("insert into messages (xero_invoice_id, heading, para, type, date, customer_phone) values (?, ?, ?, ?, ?, ?)", [xeroId, "AI Response", messages[winnerIdx], "airesponse", invoiceGetCurrentDate(), from], (err, result) => {
+                    dbAuto.query("insert into messages (xero_invoice_id, heading, para, type, date, customer_phone) values (?, ?, ?, ?, ?, ?)", [xeroId, "AI Response", messages[winnerIdx], "airesponse", invoiceGetCurrentDate(), from], (err, result) => {
                         if(err){
                             console.error(err);
                         }
     
-                        req.db.query("select * from connections where id = ?", [conId], (err, result) => {
+                        dbAuto.query("select * from connections where id = ?", [conId], (err, result) => {
                             if(err){
                                 console.error(err);
                             }
         
-                            invoiceCreateNoti(req.db, result[0].user_id, `We received an SMS reply from ${from}`, "response", invoiceId);
-                            invoiceCreateNoti(req.db, result[0].user_id, `We sent an AI response to ${from}`, "response", invoiceId);
+                            invoiceCreateNoti(dbAuto, result[0].user_id, `We received an SMS reply from ${from}`, "response", invoiceId);
+                            invoiceCreateNoti(dbAuto, result[0].user_id, `We sent an AI response to ${from}`, "response", invoiceId);
                             return res.json({ message: 'success' });
                         });
                     });

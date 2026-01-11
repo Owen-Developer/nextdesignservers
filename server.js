@@ -813,7 +813,7 @@ app.post("/invoiceapp/api/reply", (req, res) => {
                         - Customer says they will pay later
                         - Customer says they cannot afford it
                         - Customer asks a general question
-                        - Customer asks how to pay: on Xero
+                        - Customer asks how to pay: on Xero through this link: https://go.xero.com/AccountsReceivable/View.aspx?InvoiceID=${xeroId}
 
                         Tone:
                         - Calm

@@ -761,6 +761,7 @@ app.post("/invoiceapp/api/reply", (req, res) => {
                     console.error(err);
                 }
 
+                let amountDue = result[0].amount_due;
                 if(result[0] && result[0].cancelled == "no"){
                     /*
                     let intents = [
@@ -814,6 +815,7 @@ app.post("/invoiceapp/api/reply", (req, res) => {
                         - Customer says they cannot afford it
                         - Customer asks a general question
                         - Customer asks how to pay: on Xero through this link: https://go.xero.com/AccountsReceivable/View.aspx?InvoiceID=${xeroId}
+                        - Customer asks how much they owe: they owe £${amountDue}
 
                         Tone:
                         - Calm

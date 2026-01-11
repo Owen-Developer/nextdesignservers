@@ -816,6 +816,7 @@ app.post("/invoiceapp/api/reply", (req, res) => {
                         - Customer asks a general question
                         - Customer asks how to pay: on Xero through this link: https://go.xero.com/AccountsReceivable/View.aspx?InvoiceID=${xeroId}
                         - Customer asks how much they owe: they owe £${amountDue}
+                        - Customer asks who it is for: it's for Dyson's Heating Ltd
 
                         Tone:
                         - Calm

@@ -582,12 +582,12 @@ app.post("/invoiceapp/api/create-connection", requireAuth, async (req, res) => {
     }
     );
     let tenantId;
-    tokenRes.data.forEach(tenant => {
+    tenantRes.data.forEach(tenant => {
         if(!tenant.tenantName.toLowerCase().includes("demo")){
             tenantId = tenant.tenantId;
         }
     });
-    if(!tenantId) tenantId = tokenRes.data[0].tenantId;
+    if(!tenantId) tenantId = tenantRes.data[0].tenantId;
 
     req.db.query("insert into connections (user_id, tenant_id, access_token, refresh_token) values (?, ?, ?, ?)", [req.user.id, tenantId, access_token, refresh_token], (err, result) => {
         if(err){

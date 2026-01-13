@@ -627,6 +627,18 @@ app.get("/invoiceapp/api/checkup", async (req, res) => {
     
             let currentDate = invoiceGetCurrentDate();
             contacts = await invoiceGetContact(con.access_token, con.tenant_id);
+            try {
+                contacts = await invoiceGetContact(con.access_token, con.tenant_id);
+            } catch(err){
+                if(err.response && err.response.status == 401){
+                    let newData = await refreshToken(con.refresh_token);
+                    await invoiceDbQuery("update connections set access_token = ?, refresh_token = ? where id = ?", [newData.newAccessToken, newData.newRefreshToken, con.id]);
+                    contacts = await invoiceGetContact(newData.newAccessToken, con.tenant_id);
+                } else {
+                    console.error(err);
+                    return res.json({ message: 'failure' });
+                }
+            }
 
             let unstoredInvoices = [];
             let editedInvoices = [];

@@ -702,8 +702,8 @@ app.get("/invoiceapp/api/checkup", async (req, res) => {
 
                                         if(phoneNumber){
                                             await invoiceDbQuery(req.db, "update invoices set sms_stage = ? where id = ?", [1, inv.id]);
-                                            await invoiceDbQuery(req.db, "insert into messages (xero_invoice_id, heading, para, type, date, customer_phone) values (?, ?, ?, ?, ?, ?)", [inv.xero_id, "Initial Warning", "Your invoice for Dyson's is 7 days overdue.", "warning", invoiceGetCurrentDate(), phoneNumber])
-                                            await invoiceSendSms("Your invoice for Dyson's is 7 days overdue.", phoneNumber);
+                                            await invoiceDbQuery(req.db, "insert into messages (xero_invoice_id, heading, para, type, date, customer_phone) values (?, ?, ?, ?, ?, ?)", [inv.xero_id, "Initial Warning", "Hi, this is Dyson's Heating Ltd. Your invoice is 7 days overdue.", "warning", invoiceGetCurrentDate(), phoneNumber])
+                                            await invoiceSendSms("Hi, this is Dyson's Heating Ltd. Your invoice is 7 days overdue.", phoneNumber);
                                             invoiceCreateNoti(req.db, con.user_id, `A message was sent to ${xero.Contact.Name}. (7 days overdue)`, "sms", inv.id);
                                         } else {
                                             req.db.query("select * from notifications where title = ?", [`No phone number found on Xero for ${xero.Contact.Name}. (7 days overdue)`], (err, result) => {

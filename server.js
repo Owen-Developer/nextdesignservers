@@ -626,7 +626,6 @@ app.get("/invoiceapp/api/checkup", async (req, res) => {
             const dbInvoices = await invoiceDbQuery(req.db, "select * from invoices where connection_id = ?", [con.id]);
     
             let currentDate = invoiceGetCurrentDate();
-            contacts = await invoiceGetContact(con.access_token, con.tenant_id);
             try {
                 contacts = await invoiceGetContact(con.access_token, con.tenant_id);
             } catch(err){

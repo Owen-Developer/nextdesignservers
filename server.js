@@ -264,7 +264,7 @@ async function invoiceRefreshToken(refresh_token) {
     { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
     );
 
-    return { newAccessToken: tokenRes.data.access_token, newinvoiceRefreshToken: tokenRes.data.refresh_token }
+    return { newAccessToken: tokenRes.data.access_token, newRefreshToken: tokenRes.data.refresh_token }
 }
 function invoiceRequireUser(req, res, next){
     if(req.user == null){
@@ -508,7 +508,7 @@ app.get("/invoiceapp/api/get-user", requireAuth, invoiceRequireUser, async (req,
     } catch(err){
         if(err.response && err.response.status == 401){
             let newData = await invoiceRefreshToken(connections[0].refresh_token);
-            await invoiceDbQuery(req.db, "update connections set access_token = ?, refresh_token = ? where id = ?", [newData.newAccessToken, newData.newinvoiceRefreshToken, connections[0].id]);
+            await invoiceDbQuery(req.db, "update connections set access_token = ?, refresh_token = ? where id = ?", [newData.newAccessToken, newData.newRefreshToken, connections[0].id]);
 
             invoices = await invoiceGetInvoices(newData.newAccessToken, tenantId);
             req.db.query("select * from notifications where user_id = ? order by id desc", [req.user.id], (err, result) => {
@@ -615,7 +615,7 @@ app.get("/invoiceapp/api/checkup", async (req, res) => {
             } catch(err){
                 if(err.response && err.response.status == 401){
                     let newData = await invoiceRefreshToken(con.refresh_token);
-                    await invoiceDbQuery(req.db, "update connections set access_token = ?, refresh_token = ? where id = ?", [newData.newAccessToken, newData.newinvoiceRefreshToken, con.id]);
+                    await invoiceDbQuery(req.db, "update connections set access_token = ?, refresh_token = ? where id = ?", [newData.newAccessToken, newData.newRefreshToken, con.id]);
                     xeroInvoices = await invoiceGetInvoices(newData.newAccessToken, tenantId);
                 } else {
                     console.error(err);

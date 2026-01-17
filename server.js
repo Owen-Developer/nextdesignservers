@@ -630,7 +630,7 @@ app.get("/invoiceapp/api/checkup", async (req, res) => {
                 contacts = await invoiceGetContact(con.access_token, con.tenant_id);
             } catch(err){
                 if(err.response && err.response.status == 401){
-                    let newData = await refreshToken(con.refresh_token);
+                    let newData = await invoiceRefreshToken(con.refresh_token);
                     await invoiceDbQuery("update connections set access_token = ?, refresh_token = ? where id = ?", [newData.newAccessToken, newData.newRefreshToken, con.id]);
                     contacts = await invoiceGetContact(newData.newAccessToken, con.tenant_id);
                 } else {

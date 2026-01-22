@@ -112,7 +112,7 @@ const allowedOrigins = [
     'https://cadgolfperformance.com',
     'https://poojasbeautysalon.com',
     "https://appjob-082j.onrender.com",
-    "https://club729.exam-scope.com",
+    "https://club729.com",
     "https://invoice-recovery-software.onrender.com"
 ];
 app.use(cors({
@@ -139,7 +139,7 @@ function decideDb(req, res, next){
         req.db = nextdesignDb;
     } else if(origin == "https://appjob-082j.onrender.com"){
         req.db = jobDb;
-    } else if(origin == "https://club729.exam-scope.com"){
+    } else if(origin == "https://club729.com"){
         req.db = clubDb;
     } else if(origin == "https://invoice-recovery-software.onrender.com"){
         req.db = invoiceDb;
@@ -1165,7 +1165,7 @@ app.get("/club/api/get-announcements", requireAuth, (req, res) => {
             }
 
             const userData = result[0];
-            userData.password_hash = "";
+            userData?.password_hash = "";
             return res.json({ message: 'success', announcements: ancs, userData: userData });
         });
     });

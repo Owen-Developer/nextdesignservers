@@ -1165,7 +1165,9 @@ app.get("/club/api/get-announcements", requireAuth, (req, res) => {
             }
 
             const userData = result[0];
-            userData?.password_hash = "";
+            if(userData){
+                userData.password_hash = "";
+            }
             return res.json({ message: 'success', announcements: ancs, userData: userData });
         });
     });

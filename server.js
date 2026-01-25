@@ -114,7 +114,8 @@ const allowedOrigins = [
     "https://appjob-082j.onrender.com",
     "https://club729.com",
     "https://invoice-recovery-software.onrender.com",
-    "https://lumens-electrical.co.uk"
+    "https://lumens-electrical.co.uk",
+    "https://caseybuiltfitness.com"
 ];
 app.use(cors({
     origin: function (origin, callback) {
@@ -144,6 +145,8 @@ function decideDb(req, res, next){
         req.db = clubDb;
     } else if(origin == "https://invoice-recovery-software.onrender.com"){
         req.db = invoiceDb;
+    } else if(origin == "https://caseybuiltfitness.com"){
+        req.db = cadgolfDb;
     }
 
     next();
@@ -3394,6 +3397,15 @@ app.post("/lumens/api/lumens-email", async (req, res) => {
     await jobSendEmail("hello@lumens-electrical.co.uk", req.body.text);
 
     return res.json({ message: 'success' });
+});
+app.post("/casey/api/save-email", (req, res) => {
+    req.db.query("insert into casey_emails (email) values (?)", [req.body.email], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        return res.json({ message: 'success' });
+    });
 });
 
 

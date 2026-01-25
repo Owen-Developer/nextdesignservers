@@ -990,7 +990,7 @@ app.post("/club/api/apply", (req, res) => {
 
     let businessStr = business;
     if(businessStr == "other") businessStr = businesstyped;
-    if(businesstyped == ""){
+    if(businessStr == ""){
         return res.json({ message: 'noother' });
     }
 

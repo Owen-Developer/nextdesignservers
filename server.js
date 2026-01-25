@@ -379,14 +379,16 @@ function invoiceCreateNoti(reqDb, userId, title, type, invoiceId){
     });
 }
 async function invoiceSendSms(message, number){
-    try {
-        await client.messages.create({
-            body: message,
-            messagingServiceSid: "MG24612d60e681a130125239ee11f11ba8",
-            to: number
-        });
-    } catch (err) {
-        console.error(err);
+    if(false){
+        try {
+            await client.messages.create({
+                body: message,
+                messagingServiceSid: "MG24612d60e681a130125239ee11f11ba8",
+                to: number
+            });
+        } catch (err) {
+            console.error(err);
+        }
     }
 }
 function invoiceExtractPhone(contact) {

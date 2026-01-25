@@ -113,7 +113,8 @@ const allowedOrigins = [
     'https://poojasbeautysalon.com',
     "https://appjob-082j.onrender.com",
     "https://club729.com",
-    "https://invoice-recovery-software.onrender.com"
+    "https://invoice-recovery-software.onrender.com",
+    "https://lumens-electrical.co.uk"
 ];
 app.use(cors({
     origin: function (origin, callback) {
@@ -3387,6 +3388,13 @@ app.post("/job/api/verify", requireAuth, (req, res) => {
     });
 });
 /*/////////////////////////////////////////////////////////////////*/
+
+
+app.post("/lumens/api/lumens-email", async (req, res) => {
+    await jobSendEmail("hello@lumens-electrical.co.uk", req.body.text);
+
+    return res.json({ message: 'success' });
+});
 
 
 

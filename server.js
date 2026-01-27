@@ -3410,7 +3410,7 @@ app.post("/casey/api/save-email", (req, res) => {
     });
 });
 app.post("/casey/api/send-email", async (req, res) => {
-    await jobSendEmail(req.body.email, "Your payment has been confirmed.<br><br>You can now access the program here: https://caseybuiltfitness.com/pdfs/programme.pdf");
+    await jobSendEmail(req.body.email, req.body.text);
 
     return res.json({ message: 'success' });
 });

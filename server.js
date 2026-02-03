@@ -2345,6 +2345,16 @@ app.post("/cadgolf/api/get-events", (req, res) => {
         return res.json({ bookings: result });
     });
 });
+
+app.post("/cadgolf/api/save-email", (req, res) => {
+    req.db.query("insert into emails (data) values (?)", [req.body.string], (err, result) => {
+        if(err){
+            console.error("Error getting bookings: " + err);
+        }
+
+        return res.json({ message: 'success' });
+    });
+});
 /*////////////////////////////////////////////////////////////////////////////*/
 
 

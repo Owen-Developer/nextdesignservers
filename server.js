@@ -35,6 +35,16 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+const jobStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/jobapp/logos"),
+  filename: (req, file, cb) => {
+    const ext = file.originalname.split(".").pop();
+    const sheetId = Math.floor(100000 + Math.random() * 900000);
+    cb(null, `logo_${sheetId}.${ext}`);
+  },
+});
+const jobUpload = multer({ jobStorage });
+
 const accessKey = process.env.pooja_ACCESS_KEY;
 const url = process.env.pooja_FRONTEND_URL;
 
@@ -1317,8 +1327,6 @@ app.post("/club/api/edit-profile", requireAuth, (req, res) => {
         return res.json({ message: 'success' });
     });
 });
-
-app.use("/uploads", express.static("uploads"));
 /*///////////////////////////////////////////////////////////////////////////////*/
 
 
@@ -2985,32 +2993,41 @@ app.post("/job/api/send-summary", (req, res) => {
                 console.error(err);
             }
 
-            let jobName = result[0].job_name;
-            let hoursWorked = 0;
-            let minutesWorked = 0;
-            let progressStr = result[0].job_progress;
-            let totalLabourCost = 0;
-            let totalLabourCharge = 0;
-            if(progressStr.includes("hrs")){
-                hoursWorked = 0;
-                minutesWorked = Number(progressStr.slice(progressStr.indexOf("s") + 2, progressStr.indexOf("m") - 1));
-            } else {
-                minutesWorked = Number(progressStr.slice(0, progressStr.indexOf("m") - 1));
-            }
-            totalLabourCost += Number(((hoursWorked * labourCost) + (labourCost * (minutesWorked / 60))).toFixed(2));
-            totalLabourCharge += Number(((hoursWorked * labourCharge) + (labourCharge * (minutesWorked / 60))).toFixed(2));
-            if(totalLabourCharge < calloutCharge) totalLabourCharge = calloutCharge;
-
-            let realCharge = "£" + Number(chargeCharge + materialCharge + totalLabourCharge);
-            let setback = "£" + Number(materialCost + totalLabourCost);
-
-            req.db.query("update jobs set job_date = ?, job_notes = ?, job_materials = ?, job_charges = ?, job_realcharge = ?, job_setback = ?, material_cost = ?, material_charge = ?, labour_cost = ?, labour_charge = ? where id = ?", [date, notes, matStr, chargeStr, realCharge, setback, "£" + materialCost, "£" + materialCharge, "£" + totalLabourCost, "£" + totalLabourCharge, jobId], async (err, result) => {
+            req.db.query("select * from users where id = ?", [jobId.user_id], (err, userResult) => {
                 if(err){
                     console.error(err);
+                } 
+
+                if(userResult[0]?.charge != 0) labourCharge = userResult[0].charge;
+                if(userResult[0]?.cost != 0) labourCost = userResult[0].cost;
+                
+                let jobName = result[0].job_name;
+                let hoursWorked = 0;
+                let minutesWorked = 0;
+                let progressStr = result[0].job_progress;
+                let totalLabourCost = 0;
+                let totalLabourCharge = 0;
+                if(progressStr.includes("hrs")){
+                    hoursWorked = 0;
+                    minutesWorked = Number(progressStr.slice(progressStr.indexOf("s") + 2, progressStr.indexOf("m") - 1));
+                } else {
+                    minutesWorked = Number(progressStr.slice(0, progressStr.indexOf("m") - 1));
                 }
-        
-                await jobCreateNoti(req.db, 0, "'" + jobName + "' has been completed.", "finished", "admin");
-                return res.json({ message: 'success' });
+                totalLabourCost += Number(((hoursWorked * labourCost) + (labourCost * (minutesWorked / 60))).toFixed(2));
+                totalLabourCharge += Number(((hoursWorked * labourCharge) + (labourCharge * (minutesWorked / 60))).toFixed(2));
+                if(totalLabourCharge < calloutCharge) totalLabourCharge = calloutCharge;
+    
+                let realCharge = "£" + Number(chargeCharge + materialCharge + totalLabourCharge);
+                let setback = "£" + Number(materialCost + totalLabourCost);
+    
+                req.db.query("update jobs set job_date = ?, job_notes = ?, job_materials = ?, job_charges = ?, job_realcharge = ?, job_setback = ?, material_cost = ?, material_charge = ?, labour_cost = ?, labour_charge = ? where id = ?", [date, notes, matStr, chargeStr, realCharge, setback, "£" + materialCost, "£" + materialCharge, "£" + totalLabourCost, "£" + totalLabourCharge, jobId], async (err, result) => {
+                    if(err){
+                        console.error(err);
+                    }
+            
+                    await jobCreateNoti(req.db, 0, "'" + jobName + "' has been completed.", "finished", "admin");
+                    return res.json({ message: 'success' });
+                });
             });
         });
     });
@@ -3400,6 +3417,93 @@ app.post("/job/api/verify", requireAuth, (req, res) => {
                 return res.json({ message: 'success', token: token });
             });
         });
+    });
+});
+
+app.post("/job/api/upload-pfp", requireAuth, jobUpload.single("pfp"), (req, res) => {
+    res.json({ success: true, url: `http://localhost:3000/uploads/jobapp/logos/${req.file.filename}` });
+});
+
+app.use("/uploads", express.static("uploads"));
+
+app.post("/job/api/new-rate", requireAuth, (req, res) => {
+    const { charge, cost, id } = req.body;
+
+    req.db.query("update users set charge = ?, cost = ? where id = ?", [Number(charge), Number(cost), id], (err, result) => {
+        if(err){
+            console.error(err);
+        } 
+
+        return res.json({ message: 'success' });
+    });
+});
+
+app.post("/job/api/get-quote", (req, res) => {
+    let { profit, time, materials, charges } = req.body;
+
+    let chargeStr;
+    if(charges.length == 0){
+        chargeStr = "No charges";
+    } else {
+        chargeStr = charges.join(",,");
+    }
+    let matStr = "";
+    materials.forEach((arr, idx) => {
+        if(idx > 0){
+            matStr += ",," + arr[0] + "-" + arr[1] + arr[2];
+        } else {
+            matStr += arr[0] + "-" + arr[1] + arr[2];
+        }
+    });
+    if(matStr == "") matStr = "No materials used";
+
+    req.db.query("select * from prices", (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        let chargeCharge = 0;
+        let materialCost = 0;
+        let materialCharge = 0;
+        let labourCost;
+        let labourCharge;
+        let calloutCharge;
+        result.forEach(price => {
+            charges.forEach(charge => {
+                if(charge == price.id){
+                    chargeCharge += price.charge;
+                }
+            });
+            materials.forEach(arr => {
+                if(price.area == "materials" && arr[0].toLowerCase() == price.name.toLowerCase()){
+                    let newCost = Number((price.cost * (Number(arr[1]) / price.default_value)).toFixed(2));
+                    let newCharge = Number((price.charge * (Number(arr[1]) / price.default_value)).toFixed(2));
+                    materialCost += newCost;
+                    materialCharge += newCharge;
+                }
+            });
+            if(price.name == "Hourly labour cost"){
+                labourCost = price.cost;
+            } else if(price.name == "Hourly labour charge"){
+                labourCharge = price.charge;
+            } else if(price.name == "Call out fee"){
+                calloutCharge = price.charge;
+            }
+        });
+
+        let hoursWorked = time.split(":")[0];
+        let minutesWorked = time.split(":")[0];
+        let totalLabourCost = 0;
+        let totalLabourCharge = 0;
+
+        totalLabourCost += Number(((hoursWorked * labourCost) + (labourCost * (minutesWorked / 60))).toFixed(2));
+        totalLabourCharge += Number(((hoursWorked * labourCharge) + (labourCharge * (minutesWorked / 60))).toFixed(2));
+        if(totalLabourCharge < calloutCharge) totalLabourCharge = calloutCharge;
+
+        let realCharge = "£" + Number(chargeCharge + materialCharge + totalLabourCharge);
+        let setback = "£" + Number(materialCost + totalLabourCost);
+
+        return res.json({ labourCost: totalLabourCost, labourCharge: totalLabourCharge, total: realCharge, materialCost: materialCost, materialCharge: materialCharge });
     });
 });
 /*/////////////////////////////////////////////////////////////////*/

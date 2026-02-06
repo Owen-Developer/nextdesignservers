@@ -43,7 +43,7 @@ const jobStorage = multer.diskStorage({
     cb(null, `logo_${sheetId}.${ext}`);
   },
 });
-const jobUpload = multer({ jobStorage });
+const jobUpload = multer({ storage: jobStorage });
 
 const accessKey = process.env.pooja_ACCESS_KEY;
 const url = process.env.pooja_FRONTEND_URL;

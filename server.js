@@ -26,8 +26,12 @@ const client = twilio(
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
 
+const path = require("path");
+
+const uploadDir = path.join(__dirname, "uploads", "jobapp", "logos");
+
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "/uploads/pfp"),
+  destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
     const ext = file.originalname.split(".").pop();
     cb(null, `user_${req.user.userId}.${ext}`); // Save uniquely by user ID
@@ -36,7 +40,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 const jobStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "/uploads/jobapp/logos"),
+  destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
     const ext = file.originalname.split(".").pop();
     const sheetId = Math.floor(100000 + Math.random() * 900000);

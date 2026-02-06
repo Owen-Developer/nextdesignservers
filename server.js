@@ -3421,7 +3421,7 @@ app.post("/job/api/verify", requireAuth, (req, res) => {
 });
 
 app.post("/job/api/upload-pfp", requireAuth, jobUpload.single("pfp"), (req, res) => {
-    res.json({ success: true, url: `http://localhost:3000/uploads/jobapp/logos/${req.file.filename}` });
+    res.json({ success: true, url: `https://servers.nextdesignwebsite.com/uploads/jobapp/logos/${req.file.filename}` });
 });
 
 app.use("/uploads", express.static("uploads"));

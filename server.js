@@ -38,11 +38,11 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 const jobStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
+  destination: (req, file, cb) => cb(null, "uploads/jobapp/logos"),
   filename: (req, file, cb) => {
     const ext = file.originalname.split(".").pop();
     const sheetId = Math.floor(100000 + Math.random() * 900000);
-    cb(null, `logo_${sheetId}.${ext}`);
+    cb(null, `logo_${sheetId}.${ext}`); // Save uniquely by user ID
   },
 });
 const jobUpload = multer({ storage: jobStorage });

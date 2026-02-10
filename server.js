@@ -130,7 +130,7 @@ const allowedOrigins = [
     'https://nextdesignwebsite.com',
     'https://cadgolfperformance.com',
     'https://poojasbeautysalon.com',
-    "https://appjob-082j.onrender.com",
+    "https://margn.co.uk",
     "https://club729.com",
     "https://invoice-recovery-software.onrender.com",
     "https://lumens-electrical.co.uk",
@@ -158,7 +158,7 @@ function decideDb(req, res, next){
         req.db = cadgolfDb;
     } else if(origin == "https://nextdesignwebsite.com"){
         req.db = nextdesignDb;
-    } else if(origin == "https://appjob-082j.onrender.com"){
+    } else if(origin == "https://margn.co.uk"){
         req.db = jobDb;
     } else if(origin == "https://club729.com"){
         req.db = clubDb;

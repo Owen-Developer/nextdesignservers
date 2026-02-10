@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const fs = require("fs");
 const bcrypt = require('bcryptjs');
 const mysql = require('mysql2');
 const app = express();
@@ -28,6 +29,10 @@ const multer = require("multer");
 
 const uploadDir = path.join(__dirname, "uploads", "jobapp", "logos");
 
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
@@ -38,12 +43,14 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 const jobStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/jobapp/logos"),
-  filename: (req, file, cb) => {
-    const ext = file.originalname.split(".").pop();
-    const sheetId = Math.floor(100000 + Math.random() * 900000);
-    cb(null, `logo_${sheetId}.${ext}`); // Save uniquely by user ID
-  },
+    destination: function (req, file, cb) {
+        cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+        const ext = path.extname(file.originalname);
+        const sheetId = Math.floor(100000 + Math.random() * 900000);
+        cb(null, `logo_${sheetId}.${ext}`); 
+    }
 });
 const jobUpload = multer({ storage: jobStorage });
 

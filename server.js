@@ -117,6 +117,16 @@ const invoiceDb = mysql.createPool({
     connectionLimit: 10,
     queueLimit: 0
 });
+const lumensDb = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: "lumens",
+    port: process.env.PORT,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
 
 const store = new MySQLStore({
     host: process.env.DB_HOST,
@@ -134,7 +144,8 @@ const allowedOrigins = [
     "https://club729.com",
     "https://invoice-recovery-software.onrender.com",
     "https://lumens-electrical.co.uk",
-    "https://caseybuiltfitness.com"
+    "https://caseybuiltfitness.com",
+    "https://lumens-electrical.co.uk"
 ];
 app.use(cors({
     origin: function (origin, callback) {
@@ -166,6 +177,8 @@ function decideDb(req, res, next){
         req.db = invoiceDb;
     } else if(origin == "https://caseybuiltfitness.com"){
         req.db = cadgolfDb;
+    } else if(origin == "https://lumens-electrical.co.uk"){
+        req.db = lumensDb;
     }
 
     next();
@@ -3537,6 +3550,48 @@ app.post("/casey/api/send-email", async (req, res) => {
 
     return res.json({ message: 'success' });
 });
+
+
+
+
+////////////////////////// LUMENS ELECTRICAL //////////////////////////
+function lumensCheckAdmin(req, res, next){
+    if(req.body.code == process.env.LUMENS_ADMIN_CODE){
+        next();
+    } else {
+        return res.json({ message: 'unauth' });
+    }
+}
+
+
+app.post("/lumens/api/verify", lumensCheckAdmin, (req, res) => {
+    return res.json({ message: 'success' });
+});
+
+app.post("/lumens/api/post-blog", (req, res) => {
+    let { title, image, body } = req.body;
+
+    body = body.replace(/\n/g, "<br><br>");
+    
+    req.db.query("insert into blogs (title, image, body) values (?, ?, ?)", [title, image, body], (err, result) => {
+        if(err){
+            console.error(err);
+        }
+
+        return res.json({ message: 'success' });
+    });
+});
+
+app.get("/lumens/api/get-blogs", (req, res) => {
+    req.db.query("select * from blogs", (err, result) => {
+        if(err){
+            console.error(err);
+        }
+    
+        return res.json({ blogs: result });
+    });
+});
+/*////////////////////////////////////////////////////////////////////////////*/
 
 
 

@@ -3572,6 +3572,27 @@ app.post("/lumens/api/post-blog", (req, res) => {
     let { title, image, body } = req.body;
 
     body = body.replace(/\n/g, "<br><br>");
+
+    let boldIdx = 2;
+    let imgIdx = 2;
+    for(let i = 0; i < body.length; i++){
+        let character = body[i];
+        if(character == "*" && body[i + 1] == "*" && body[i + 2] == "*"){
+            if(imgIdx % 2 == 0){
+                body = body.slice(0, i) + "<div class='post-body-img'><img src='" + body.slice(i + 3);
+            } else {
+                body = body.slice(0, i) + "' /></div>" + body.slice(i + 3);
+            }
+            imgIdx++;
+        } else if(character == "*" && body[i + 1] == "*"){
+            if(boldIdx % 2 == 0){
+                body = body.slice(0, i) + "<b>" + body.slice(i + 2);
+            } else {
+                body = body.slice(0, i) + "</b>" + body.slice(i + 2);
+            }
+            boldIdx++;
+        }
+    }
     
     req.db.query("insert into blogs (title, image, body) values (?, ?, ?)", [title, image, body], (err, result) => {
         if(err){
